@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold text-gray-800">收入支出报表</h2>
+    <div class="flex gap-2">
+        <button onclick="document.getElementById('addIncomeModal').classList.remove('hidden')"
+                class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">+ 收入</button>
+        <button onclick="document.getElementById('addExpenseModal').classList.remove('hidden')"
+                class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm">+ 支出</button>
+    </div>
+</div>
+
+<!-- 月份筛选 -->
+<div class="mb-4 flex gap-2">
+    <input type="number" id="yearFilter" value="{{ today.year }}" class="w-20 px-3 py-2 border rounded-lg text-sm" placeholder="年"
+           onchange="refreshFinance()">
+    <input type="number" id="monthFilter" value="{{ today.month }}" class="w-16 px-3 py-2 border rounded-lg text-sm" placeholder="月" min="1" max="12"
+           onchange="refreshFinance()">
+    <button onclick="refreshFinance()" class="px-3 py-2 text-sm bg-gray-100 border rounded-lg hover:bg-gray-200">查询</button>
+</div>
+
+<!-- 汇总卡片 -->
+<div id="financeSummary" hx-get="/api/finance/summary?year={{ today.year }}&month={{ today.month }}" hx-trigger="load">
+    <div class="text-center py-4 text-gray-400">加载统计...</div>
+</div>
+
+<!-- Tab 切换 -->
+<div class="flex gap-1 mb-4">
+    <button id="tabIncome" onclick="switchFinanceTab('income')" class="px-4 py-2 text-sm rounded-lg bg-green-600 text-white">收入明细</button>
+    <button id="tabExpense" onclick="switchFinanceTab('expense')" class="px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300">支出明细</button>
+</div>
+
+<div id="incomeSection">
+    <div id="incomeTable" hx-get="/api/finance/income/table?year={{ today.year }}&month={{ today.month }}" hx-trigger="load"><div class="text-center py-8 text-gray-400">加载中...</div></div>
+</div>
+<div id="expenseSection" class="hidden">
+    <div id="expenseTable" hx-get="/api/finance/expense/table?year={{ today.year }}&month={{ today.month }}" hx-trigger="load"><div class="text-center py-8 text-gray-400">加载中...</div></div>
+</div>
+
+<script>
+function refreshFinance() {
+    const y = document.getElementById('yearFilter').value || {{ today.year }};
+    const m = document.getElementById('monthFilter').value || {{ today.month }};
+    document.getElementById('financeSummary').setAttribute('hx-get', '/api/finance/summary?year='+y+'&month='+m);
+    document.getElementById('incomeTable').setAttribute('hx-get', '/api/finance/income/table?year='+y+'&month='+m);
+    document.getElementById('expenseTable').setAttribute('hx-get', '/api/finance/expense/table?year='+y+'&month='+m);
+    htmx.trigger('#financeSummary', 'load');
+    htmx.trigger('#incomeTable', 'load');
+    htmx.trigger('#expenseTable', 'load');
+}
+function switchFinanceTab(tab) {
+    document.getElementById('incomeSection').classList.toggle('hidden', tab !== 'income');
+    document.getElementById('expenseSection').classList.toggle('hidden', tab !== 'expense');
+    document.getElementById('tabIncome').className = (tab === 'income' ? 'px-4 py-2 text-sm rounded-lg bg-green-600 text-white' : 'px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300');
+    document.getElementById('tabExpense').className = (tab === 'expense' ? 'px-4 py-2 text-sm rounded-lg bg-green-600 text-white' : 'px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300');
+}
+</script>
+
+<!-- 新增收入 -->
+<div id="addIncomeModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">新增收入</h3>
+            <button onclick="document.getElementById('addIncomeModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form hx-post="/api/finance/income" hx-target="#incomeTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addIncomeModal').classList.add('hidden'); this.reset(); refreshFinance();}">
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-sm text-gray-600 mb-1">日期</label><input name="income_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">类别</label>
+                    <select name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="售课收入">售课收入</option><option value="商品零售">商品零售</option><option value="会籍卡">会籍卡</option><option value="其他">其他</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm text-gray-600 mb-1">金额 *</label><input name="amount" type="number" step="0.01" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">来源</label><input name="source" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">支付方式</label>
+                    <select name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">备注</label><textarea name="remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="document.getElementById('addIncomeModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 新增支出 -->
+<div id="addExpenseModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">新增支出</h3>
+            <button onclick="document.getElementById('addExpenseModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form hx-post="/api/finance/expense" hx-target="#expenseTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addExpenseModal').classList.add('hidden'); this.reset(); refreshFinance();}">
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-sm text-gray-600 mb-1">日期</label><input name="expense_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">类别</label>
+                    <select name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="房租">房租</option><option value="水电">水电</option><option value="工资">工资</option><option value="设备">设备</option><option value="其他">其他</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm text-gray-600 mb-1">金额 *</label><input name="amount" type="number" step="0.01" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">收款方</label><input name="payee" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">支付方式</label>
+                    <select name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">选择</option><option value="现金">现金</option><option value="转账">转账</option><option value="刷卡">刷卡</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">备注</label><textarea name="remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="document.getElementById('addExpenseModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

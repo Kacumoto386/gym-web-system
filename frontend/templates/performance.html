@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">📊 业绩总览</h2>
+    <select id="periodSelect"
+            class="px-3 py-2 border rounded-lg text-sm bg-white shadow-sm"
+            hx-get="/api/performance/overview/cards" hx-trigger="change"
+            hx-target="#statsCards" hx-params="period" name="period">
+        <option value="今日">今日</option>
+        <option value="本周">本周</option>
+        <option value="本月" selected>本月</option>
+        <option value="上月">上月</option>
+        <option value="本年">本年</option>
+        <option value="全部">全部</option>
+    </select>
+</div>
+
+<div id="statsCards" hx-get="/api/performance/overview/cards?period=本月" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
+<div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <a href="/performance/sales" class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:border-blue-300 transition">
+        <div class="text-blue-600 text-lg">💳</div>
+        <div class="font-medium text-gray-800 mt-1">售课业绩</div>
+        <div class="text-xs text-gray-500 mt-1">查看课程销售明细与到期分析</div>
+    </a>
+    <a href="/performance/packages" class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:border-blue-300 transition">
+        <div class="text-purple-600 text-lg">📦</div>
+        <div class="font-medium text-gray-800 mt-1">课程包业绩</div>
+        <div class="text-xs text-gray-500 mt-1">课时消耗与课程包状态统计</div>
+    </a>
+    <a href="/performance/cards" class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:border-blue-300 transition">
+        <div class="text-green-600 text-lg">🎫</div>
+        <div class="font-medium text-gray-800 mt-1">会籍卡业绩</div>
+        <div class="text-xs text-gray-500 mt-1">按类型统计会籍卡销售数据</div>
+    </a>
+    <a href="/performance/checkins" class="bg-white rounded-xl shadow-sm p-5 border border-gray-100 hover:border-blue-300 transition">
+        <div class="text-orange-600 text-lg">🏃</div>
+        <div class="font-medium text-gray-800 mt-1">会员进场统计</div>
+        <div class="text-xs text-gray-500 mt-1">进场人次、方式分布与时段分析</div>
+    </a>
+</div>
+{% endblock %}

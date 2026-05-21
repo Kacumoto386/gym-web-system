@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold text-gray-800">📤 数据导出</h2>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+    <p class="text-gray-500 text-sm mb-4">选择要导出的数据表，下载 CSV 格式文件（Excel 可直接打开）</p>
+
+    <div id="tableList" class="grid grid-cols-2 md:grid-cols-3 gap-3" hx-get="/api/export/tables" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center py-4 text-gray-400">加载中...</div>
+    </div>
+</div>
+
+<script>
+// 用 HTMX 请求列表后转换，或者直接硬编码
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        const res = await fetch('/api/export/tables');
+        const tables = await res.json();
+        const container = document.getElementById('tableList');
+        container.innerHTML = '';
+        for (const t of tables) {
+            const div = document.createElement('div');
+            div.className = 'bg-gray-50 rounded-lg p-4 border border-gray-100 hover:border-blue-300 transition flex items-center justify-between';
+            div.innerHTML = `
+                <span class="text-sm font-medium text-gray-700">${t.name}</span>
+                <a href="/api/export/${t.key}?format=csv" 
+                   class="text-blue-600 hover:text-blue-800 text-sm ml-2 whitespace-nowrap"
+                   download>⬇ 下载 CSV</a>
+            `;
+            container.appendChild(div);
+        }
+    } catch(e) {
+        document.getElementById('tableList').innerHTML = '<div class="text-center py-4 text-red-400">加载失败</div>';
+    }
+});
+</script>
+{% endblock %}

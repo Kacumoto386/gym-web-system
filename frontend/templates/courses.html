@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+/* 行点击展开详情 */
+.course-row { cursor: pointer; }
+.course-row td:last-child { cursor: default; }
+.detail-row td { padding: 0 !important; }
+.detail-row .detail-inner { max-height: 0; overflow: hidden; transition: max-height 0.25s ease; }
+.detail-row.expanded .detail-inner { max-height: 300px; }
+</style>
+
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">课程管理</h2>
+    <button onclick="document.getElementById('addModal').classList.remove('hidden')"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+        + 新增课程
+    </button>
+</div>
+
+<!-- 统计卡片 -->
+<div id="courseCards" hx-get="/api/courses/cards" hx-trigger="load"></div>
+
+<!-- 工具栏 -->
+<div class="mb-4 flex flex-wrap items-center gap-2">
+    <input type="text" id="searchInput" placeholder="搜索课程名称..."
+           class="w-full md:w-48 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+           hx-get="/api/courses/search" hx-trigger="keyup changed delay:300ms"
+           hx-target="#courseTable" hx-params="q">
+    <select id="typeFilter" class="px-3 py-2 border rounded-lg text-sm"
+            hx-get="/api/courses/search" hx-trigger="change" hx-target="#courseTable" hx-params="course_type">
+        <option value="">全部类型</option>
+        <option value="私教课">私教课</option>
+        <option value="团课">团课</option>
+        <option value="小班课">小班课</option>
+        <option value="体验课">体验课</option>
+    </select>
+
+    <span class="text-xs text-gray-400 mx-1">|</span>
+
+    <!-- 批量操作 -->
+    <button id="batchOnlineBtn" class="hidden px-3 py-1.5 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
+            onclick="batchAction('online')">批量上架</button>
+    <button id="batchOfflineBtn" class="hidden px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+            onclick="batchAction('offline')">批量下架</button>
+    <button id="batchDeleteBtn" class="hidden px-3 py-1.5 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200"
+            onclick="batchAction('delete')">批量删除</button>
+    <span id="batchCount" class="hidden text-xs text-gray-400 ml-1"></span>
+
+    <span class="text-xs text-gray-400 mx-1">|</span>
+
+    <button onclick="refreshAll()" class="px-3 py-1.5 text-xs text-gray-500 border rounded hover:bg-gray-50">⟳ 刷新</button>
+</div>
+
+<!-- 课程列表 -->
+<div id="courseTable" hx-get="/api/courses/table" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
+<!-- 新增课程对话框 -->
+<div id="addModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">新增课程</h3>
+            <button onclick="document.getElementById('addModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form hx-post="/api/courses" hx-target="#courseTable"
+              hx-on::after-request="if(event.detail.successful){document.getElementById('addModal').classList.add('hidden'); this.reset(); refreshAll();}">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">课程名 *</label>
+                    <input name="name" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">课程类型</label>
+                    <select name="course_type" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="私教课">私教课</option>
+                        <option value="团课">团课</option>
+                        <option value="小班课">小班课</option>
+                        <option value="体验课">体验课</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">运动类型</label>
+                    <input name="sport_type" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="瑜伽/力量/有氧">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">标准课时</label>
+                    <input name="standard_hours" type="number" value="1" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">标准价</label>
+                    <input name="standard_price" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">优惠价</label>
+                    <input name="discount_price" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">有效期(天)</label>
+                    <input name="valid_days" type="number" value="30" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">最大预约数</label>
+                    <input name="max_bookings" type="number" value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">教练</label>
+                    <input name="coach" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">上课地点</label>
+                    <input name="location" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+            </div>
+            <div class="mt-4">
+                <label class="block text-sm text-gray-600 mb-1">描述</label>
+                <textarea name="description" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="课程描述..."></textarea>
+            </div>
+            <div class="mt-3">
+                <label class="block text-sm text-gray-600 mb-1">备注</label>
+                <textarea name="remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="备注信息..."></textarea>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑课程对话框 -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">编辑课程</h3>
+            <button onclick="document.getElementById('editModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form id="editForm" hx-put="" hx-target="#courseTable"
+              hx-on::after-request="if(event.detail.successful){document.getElementById('editModal').classList.add('hidden'); refreshAll();}">
+            <div class="grid grid-cols-2 gap-4">
+                <div><label class="block text-sm text-gray-600 mb-1">课程名 *</label>
+                    <input name="name" id="edit_name" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">课程类型</label>
+                    <select name="course_type" id="edit_course_type" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="私教课">私教课</option><option value="团课">团课</option>
+                        <option value="小班课">小班课</option><option value="体验课">体验课</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm text-gray-600 mb-1">运动类型</label>
+                    <input name="sport_type" id="edit_sport_type" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">标准课时</label>
+                    <input name="standard_hours" id="edit_standard_hours" type="number" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">标准价</label>
+                    <input name="standard_price" id="edit_standard_price" type="number" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">优惠价</label>
+                    <input name="discount_price" id="edit_discount_price" type="number" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">有效期(天)</label>
+                    <input name="valid_days" id="edit_valid_days" type="number" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">最大预约数</label>
+                    <input name="max_bookings" id="edit_max_bookings" type="number" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">教练</label>
+                    <input name="coach" id="edit_coach" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">上课地点</label>
+                    <input name="location" id="edit_location" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+            </div>
+            <div class="mt-4"><label class="block text-sm text-gray-600 mb-1">描述</label>
+                <textarea name="description" id="edit_description" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">备注</label>
+                <textarea name="remark" id="edit_remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存修改</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// 编辑课程
+// ═══════════════════════════════════════════
+function openEditCourse(courseId) {
+    fetch('/api/courses/' + courseId)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('edit_name').value = data.name || '';
+            document.getElementById('edit_course_type').value = data.course_type || '私教课';
+            document.getElementById('edit_sport_type').value = data.sport_type || '';
+            document.getElementById('edit_standard_hours').value = data.standard_hours || 1;
+            document.getElementById('edit_standard_price').value = data.standard_price || 0;
+            document.getElementById('edit_discount_price').value = data.discount_price || 0;
+            document.getElementById('edit_valid_days').value = data.valid_days || 0;
+            document.getElementById('edit_max_bookings').value = data.max_bookings || 0;
+            document.getElementById('edit_coach').value = data.coach || '';
+            document.getElementById('edit_location').value = data.location || '';
+            document.getElementById('edit_description').value = data.description || '';
+            document.getElementById('edit_remark').value = data.remark || '';
+            document.getElementById('editForm').setAttribute('hx-put', '/api/courses/' + courseId);
+            document.getElementById('editModal').classList.remove('hidden');
+        });
+}
+
+// ═══════════════════════════════════════════
+// 上架/下架切换
+// ═══════════════════════════════════════════
+function toggleStatus(courseId) {
+    fetch('/api/courses/' + courseId + '/toggle-status', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            refreshAll();
+        });
+}
+
+// ═══════════════════════════════════════════
+// 批量操作
+// ═══════════════════════════════════════════
+function toggleSelectAll(el) {
+    document.querySelectorAll('.batch-check').forEach(cb => cb.checked = el.checked);
+    updateBatchButtons();
+}
+
+function updateBatchButtons() {
+    const checked = document.querySelectorAll('.batch-check:checked');
+    const count = checked.length;
+    const ids = Array.from(checked).map(cb => cb.value);
+
+    document.getElementById('batchOnlineBtn').classList.toggle('hidden', count === 0);
+    document.getElementById('batchOfflineBtn').classList.toggle('hidden', count === 0);
+    document.getElementById('batchDeleteBtn').classList.toggle('hidden', count === 0);
+    document.getElementById('batchCount').classList.toggle('hidden', count === 0);
+    if (count > 0) document.getElementById('batchCount').textContent = `已选 ${count} 项`;
+}
+
+function batchAction(action) {
+    const checked = document.querySelectorAll('.batch-check:checked');
+    const ids = Array.from(checked).map(cb => cb.value);
+    if (ids.length === 0) return;
+
+    const msg = action === 'delete' ? `确认删除选中的 ${ids.length} 个课程？` : null;
+    if (msg && !confirm(msg)) return;
+
+    fetch('/api/courses/batch', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ course_ids: ids, action: action })
+    })
+    .then(r => r.json())
+    .then(data => {
+        refreshAll();
+    });
+}
+
+// 监听复选框变化
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('batch-check')) updateBatchButtons();
+});
+
+// ═══════════════════════════════════════════
+// 行点击展开详情
+// ═══════════════════════════════════════════
+document.addEventListener('click', function(e) {
+    const row = e.target.closest('.hover\\:bg-gray-50.border-b.group');
+    if (!row || e.target.closest('button') || e.target.closest('.status-badge') || e.target.closest('input')) return;
+
+    const detailId = row.getAttribute('id') ? null : null;
+    // Find the corresponding detail row (next sibling)
+    const detailRow = row.nextElementSibling;
+    if (detailRow && detailRow.id && detailRow.id.startsWith('detail-')) {
+        detailRow.classList.toggle('hidden');
+    }
+});
+
+// ═══════════════════════════════════════════
+// 刷新
+// ═══════════════════════════════════════════
+function refreshAll() {
+    htmx.trigger('#courseCards', 'load');
+    htmx.trigger('#courseTable', 'load');
+}
+</script>
+
+{% endblock %}

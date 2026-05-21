@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">🏃 会员进场统计</h2>
+    <select id="periodSelect"
+            class="px-3 py-2 border rounded-lg text-sm bg-white shadow-sm"
+            hx-get="/api/performance/checkins/stats" hx-trigger="change"
+            hx-target="#statsCards" hx-params="period" name="period">
+        <option value="今日">今日</option>
+        <option value="本周">本周</option>
+        <option value="本月" selected>本月</option>
+        <option value="上月">上月</option>
+        <option value="本年">本年</option>
+        <option value="全部">全部</option>
+    </select>
+</div>
+
+<div id="statsCards" hx-get="/api/performance/checkins/stats?period=本月" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+    <div id="byType" hx-get="/api/performance/checkins/by-type?period=本月" hx-trigger="load">
+        <div class="text-center py-4 text-gray-400">加载中...</div>
+    </div>
+    <div id="byHour" hx-get="/api/performance/checkins/by-hour?period=本月" hx-trigger="load">
+        <div class="text-center py-4 text-gray-400">加载中...</div>
+    </div>
+</div>
+
+<div class="mt-4" id="checkinTable" hx-get="/api/performance/checkins/table?period=本月" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
+<script>
+// 联动时间筛选
+document.getElementById('periodSelect')?.addEventListener('change', function() {
+    const period = this.value;
+    htmx.ajax('GET', `/api/performance/checkins/stats?period=${period}`, {target: '#statsCards'});
+    htmx.ajax('GET', `/api/performance/checkins/by-type?period=${period}`, {target: '#byType'});
+    htmx.ajax('GET', `/api/performance/checkins/by-hour?period=${period}`, {target: '#byHour'});
+    htmx.ajax('GET', `/api/performance/checkins/table?period=${period}`, {target: '#checkinTable'});
+});
+</script>
+{% endblock %}

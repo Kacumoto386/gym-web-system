@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold text-gray-800">操作日志</h2>
+    <div id="logCount" class="text-sm text-gray-400"></div>
+</div>
+
+<!-- 系统名称编辑区 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span class="text-base">⚙️</span>
+            <span class="text-sm font-medium text-gray-700">系统名称</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <input id="systemNameInput" type="text" class="px-3 py-1.5 border rounded-lg text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent" placeholder="输入系统名称" maxlength="50">
+            <button onclick="saveSystemName()" class="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">保存</button>
+            <span id="saveStatus" class="text-sm"></span>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选 -->
+<div class="mb-4 flex gap-2">
+    <select id="actionFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="refreshLogs()">
+        <option value="">全部操作</option>
+        <option value="create">新增</option>
+        <option value="update">修改</option>
+        <option value="delete">删除</option>
+    </select>
+    <select id="resourceFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="refreshLogs()">
+        <option value="">全部资源</option>
+        <option value="会员">会员</option>
+        <option value="员工">员工</option>
+        <option value="课程">课程</option>
+        <option value="售课记录">售课</option>
+        <option value="上课记录">上课</option>
+        <option value="进场记录">进场</option>
+        <option value="手环">手环</option>
+        <option value="体测记录">体测</option>
+        <option value="充值记录">充值</option>
+        <option value="会籍卡">会籍卡</option>
+        <option value="商品">商品</option>
+        <option value="商品零售">商品零售</option>
+        <option value="财务">财务</option>
+        <option value="系统设置">系统设置</option>
+    </select>
+    <button onclick="refreshLogs()" class="px-3 py-2 text-sm bg-gray-100 border rounded-lg hover:bg-gray-200">刷新</button>
+</div>
+
+<div id="logTable"></div>
+
+<script>
+// ═══════════════════════════════════════
+// 页面加载
+// ═══════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function() {
+    // 读取系统名称填入输入框
+    fetch('/api/system/settings')
+        .then(r => r.json())
+        .then(data => {
+            if (data.system_name) {
+                document.getElementById('systemNameInput').value = data.system_name;
+            }
+        })
+        .catch(() => {});
+    // 首次加载日志
+    refreshLogs();
+});
+
+// ═══════════════════════════════════════
+// 保存系统名称
+// ═══════════════════════════════════════
+function saveSystemName() {
+    const name = document.getElementById('systemNameInput').value.trim();
+    const statusEl = document.getElementById('saveStatus');
+
+    if (!name) {
+        statusEl.innerHTML = '<span class="text-red-500">名称不能为空</span>';
+        return;
+    }
+
+    fetch('/api/system/settings', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            statusEl.innerHTML = '<span class="text-green-500">✅ 已保存</span>';
+            setTimeout(() => statusEl.innerHTML = '', 3000);
+            refreshLogs();
+        } else {
+            statusEl.innerHTML = '<span class="text-red-500">保存失败</span>';
+        }
+    })
+    .catch(() => {
+        statusEl.innerHTML = '<span class="text-red-500">请求失败</span>';
+    });
+}
+
+// ═══════════════════════════════════════
+// 刷新日志列表
+// 使用 fetch() 替代 htmx.ajax() 以避免 HTMX 缓存问题
+// ═══════════════════════════════════════
+function refreshLogs() {
+    const action = document.getElementById('actionFilter').value;
+    const resource = document.getElementById('resourceFilter').value;
+    let url = '/api/logs/table';
+    const params = [];
+    if (action) params.push('action=' + encodeURIComponent(action));
+    if (resource) params.push('resource=' + encodeURIComponent(resource));
+    if (params.length) url += '?' + params.join('&');
+
+    // 显示加载中
+    document.getElementById('logTable').innerHTML = '<div class="text-center py-8 text-gray-400">加载中...</div>';
+
+    fetch(url)
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(html => {
+            document.getElementById('logTable').innerHTML = html;
+        })
+        .catch(() => {
+            document.getElementById('logTable').innerHTML = '<div class="text-center py-8 text-red-400">加载失败，请重试</div>';
+        });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,95 @@
+# Database
+data/gym.db
+data/*.db
+*.db
+
+# Environment
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+_d_backups/
+
+# Debug / temp scripts
+_check_*.py
+_debug_*.py
+_debug_*.html
+_fix_*.py
+_find_*.py
+_full_*.py
+_get_*.py
+_save_*.py
+_start_*.bat
+_temp_*.js
+_test_*.py
+_test_*.txt
+*.bat
+*_output.html
+
+# Request / data dumps
+auth_data.json
+chat_request*.json
+session_clear.json
+server.log
+
+# Root-level standalone scripts
+/clean_*.py
+/debug_*.py
+/deep_clean.py
+/fix_*.py
+/inject_logs*.py
+/rollback_logs.py
+/test_*.py
+/verify_*.py
+/marked_*.js
+/marked_*.html
+/test_*.html
+
+# Backup / log files
+*.bak
+*.log
+
+# Test reports
+test_reports/
+
+# Root-level standalone test scripts
+/clean_*.py
+/deep_clean.py
+/fix_*.py
+/inject_logs*.py
+/rollback_logs*.py
+/test_*.py
+/verify_*.py
+/marked_*.js
+/marked_*.html
+/test_marked*.html
+
+# Temp files
+/temp/
+/_chat_page.html
+/_page_output.html
+/_start_now.bat
+/start*.bat
+/run_*.bat
+
+# Claude
+.claude/

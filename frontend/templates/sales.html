@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold text-gray-800">售课记录</h2>
+    <button onclick="openAddModal()"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+        + 新增售课
+    </button>
+</div>
+
+<div id="saleTable" hx-get="/api/sales/table" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
+<!-- 新增售课对话框 -->
+<div id="addModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">新增售课</h3>
+            <button onclick="closeAddModal()"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form id="saleForm">
+            <div class="grid grid-cols-2 gap-3">
+                <!-- 会员：搜索输入框 + 下拉列表 -->
+                <div class="relative">
+                    <label class="block text-sm text-gray-600 mb-1">选择会员</label>
+                    <input id="searchMember" type="text" placeholder="输入姓名/编号/电话搜索..."
+                           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                           oninput="filterMembers()" onfocus="showMemberDropdown()" onblur="hideMemberDropdown()">
+                    <div id="memberDropdown" class="absolute z-10 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto hidden">
+                    </div>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">会员信息</label>
+                        <div id="memberInfo" class="px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 min-h-[38px] flex items-center">未选择</div>
+                    </div>
+                    <button type="button" onclick="clearMember()"
+                            class="px-2 py-2 text-xs text-gray-400 border rounded-lg hover:bg-gray-50 mb-0">✕</button>
+                </div>
+                <input id="fldMemberId" name="member_id" type="hidden">
+                <input id="fldMemberName" name="member_name" type="hidden">
+                <input id="fldMemberPhone" name="member_phone" type="hidden">
+
+                <!-- 课程：搜索输入框 + 下拉列表 -->
+                <div class="relative">
+                    <label class="block text-sm text-gray-600 mb-1">选择课程</label>
+                    <input id="searchCourse" type="text" placeholder="输入名称/编号搜索..."
+                           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                           oninput="filterCourses()" onfocus="showCourseDropdown()" onblur="hideCourseDropdown()">
+                    <div id="courseDropdown" class="absolute z-10 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto hidden">
+                    </div>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">课程信息</label>
+                        <div id="courseInfo" class="px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 min-h-[38px] flex items-center">未选择</div>
+                    </div>
+                    <button type="button" onclick="clearCourse()"
+                            class="px-2 py-2 text-xs text-gray-400 border rounded-lg hover:bg-gray-50 mb-0">✕</button>
+                </div>
+                <input id="fldCourseId" name="course_id" type="hidden">
+                <input id="fldCourseName" name="course_name" type="hidden">
+                <input id="fldUnitPrice" name="unit_price" type="hidden">
+
+                <!-- 数值 -->
+                <div><label class="block text-sm text-gray-600 mb-1">购买课时</label><input name="bought_hours" type="number" value="1" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">赠送课时</label><input name="bonus_hours" type="number" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">实收金额 *</label><input name="actual_amount" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">支付方式</label>
+                    <select name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">请选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="刷卡">刷卡</option><option value="转账">转账</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">支付状态</label>
+                    <select name="payment_status" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="已付清">已付清</option><option value="部分支付">部分支付</option><option value="未付款">未付款</option>
+                    </select>
+                </div>
+                <!-- 销售人员：搜索输入框 + 下拉列表 -->
+                <div class="relative">
+                    <label class="block text-sm text-gray-600 mb-1">选择销售人员</label>
+                    <input id="searchStaff" type="text" placeholder="输入姓名/编号搜索..."
+                           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                           oninput="filterStaff()" onfocus="showStaffDropdown()" onblur="hideStaffDropdown()">
+                    <div id="staffDropdown" class="absolute z-10 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto hidden">
+                    </div>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">员工信息</label>
+                        <div id="staffInfo" class="px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 min-h-[38px] flex items-center">未选择</div>
+                    </div>
+                    <button type="button" onclick="clearStaff()"
+                            class="px-2 py-2 text-xs text-gray-400 border rounded-lg hover:bg-gray-50 mb-0">✕</button>
+                </div>
+                <input id="fldStaffId" name="staff_id" type="hidden">
+                <input id="fldStaffName" name="staff_name" type="hidden">
+            </div>
+            <div id="formError" class="text-red-500 text-sm mt-3 hidden"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="closeAddModal()"
+                        class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="button" onclick="submitSale()"
+                        class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// 缓存数据
+// ═══════════════════════════════════════
+let membersCache = [];
+let coursesCache = [];
+let memberSelected = null;
+let courseSelected = null;
+let staffSelected = null;
+
+// ═══════════════════════════════════════
+// 对话框
+// ═══════════════════════════════════════
+function openAddModal() {
+    document.getElementById('addModal').classList.remove('hidden');
+    clearForm();
+    loadMembers();
+    loadCourses();
+    loadStaff();
+}
+
+function closeAddModal() {
+    document.getElementById('addModal').classList.add('hidden');
+}
+
+function clearForm() {
+    memberSelected = null;
+    courseSelected = null;
+    staffSelected = null;
+    document.getElementById('searchMember').value = '';
+    document.getElementById('searchCourse').value = '';
+    document.getElementById('searchStaff').value = '';
+    document.getElementById('memberInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('courseInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('staffInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('fldMemberId').value = '';
+    document.getElementById('fldMemberName').value = '';
+    document.getElementById('fldMemberPhone').value = '';
+    document.getElementById('fldCourseId').value = '';
+    document.getElementById('fldCourseName').value = '';
+    document.getElementById('fldUnitPrice').value = '0';
+    document.getElementById('fldStaffId').value = '';
+    document.getElementById('fldStaffName').value = '';
+    document.getElementById('formError').classList.add('hidden');
+    hideMemberDropdown();
+    hideCourseDropdown();
+    hideStaffDropdown();
+}
+
+// ═══════════════════════════════════════
+// 加载数据
+// ═══════════════════════════════════════
+function loadMembers() {
+    fetch('/api/members/search-json?q=')
+        .then(r => r.json())
+        .then(data => { membersCache = data || []; filterMembers(); })
+        .catch(() => {});
+}
+
+function loadCourses() {
+    fetch('/api/courses/search-json?q=')
+        .then(r => r.json())
+        .then(data => { coursesCache = data || []; filterCourses(); })
+        .catch(() => {});
+}
+
+function loadStaff() {
+    fetch('/api/staff/search-json?q=')
+        .then(r => r.json())
+        .then(data => { staffCache = data || []; filterStaff(); })
+        .catch(() => {});
+}
+
+// ═══════════════════════════════════════
+// 会员搜索下拉
+// ═══════════════════════════════════════
+function filterMembers() {
+    const q = document.getElementById('searchMember').value.trim().toLowerCase();
+    const list = q ? membersCache.filter(m =>
+        (m.name || '').toLowerCase().includes(q) ||
+        (m.member_id || '').toLowerCase().includes(q) ||
+        (m.phone || '').includes(q)
+    ) : membersCache;
+
+    const dd = document.getElementById('memberDropdown');
+    if (list.length === 0) {
+        dd.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到匹配会员</div>';
+    } else {
+        dd.innerHTML = list.map(m =>
+            `<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between"
+                  onmousedown="selectMember('${m.member_id}', '${(m.name || '').replace(/'/g, "\\'")}', '${(m.phone || '').replace(/'/g, "\\'")}', this)">
+                <span>${m.name || '-'}</span>
+                <span class="text-gray-400 text-xs ml-2">${m.member_id || ''} ${m.phone ? '· ' + m.phone : ''}</span>
+            </div>`
+        ).join('');
+    }
+    dd.classList.remove('hidden');
+}
+
+function showMemberDropdown() {
+    const dd = document.getElementById('memberDropdown');
+    if (!dd.classList.contains('hidden')) return;
+    filterMembers();
+    dd.classList.remove('hidden');
+}
+
+function hideMemberDropdown() {
+    setTimeout(() => document.getElementById('memberDropdown').classList.add('hidden'), 200);
+}
+
+function selectMember(id, name, phone, el) {
+    memberSelected = { id, name, phone };
+    document.getElementById('fldMemberId').value = id;
+    document.getElementById('fldMemberName').value = name;
+    document.getElementById('fldMemberPhone').value = phone;
+    document.getElementById('memberInfo').innerHTML =
+        `<span class="text-gray-700">${name}</span><span class="text-gray-400 text-xs ml-2">${id} · ${phone}</span>`;
+    document.getElementById('searchMember').value = name;
+    document.getElementById('memberDropdown').classList.add('hidden');
+}
+
+function clearMember() {
+    memberSelected = null;
+    document.getElementById('fldMemberId').value = '';
+    document.getElementById('fldMemberName').value = '';
+    document.getElementById('fldMemberPhone').value = '';
+    document.getElementById('memberInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('searchMember').value = '';
+    filterMembers();
+}
+
+// ═══════════════════════════════════════
+// 课程搜索下拉
+// ═══════════════════════════════════════
+function filterCourses() {
+    const q = document.getElementById('searchCourse').value.trim().toLowerCase();
+    const list = q ? coursesCache.filter(c =>
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.course_id || '').toLowerCase().includes(q)
+    ) : coursesCache;
+
+    const dd = document.getElementById('courseDropdown');
+    if (list.length === 0) {
+        dd.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到匹配课程</div>';
+    } else {
+        dd.innerHTML = list.map(c =>
+            `<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between"
+                  onmousedown="selectCourse('${c.course_id}', '${(c.name || '').replace(/'/g, "\\'")}', ${c.standard_price || 0}, this)">
+                <span>${c.name || '-'}</span>
+                <span class="text-gray-400 text-xs ml-2">${c.course_type || ''} · ¥${c.standard_price || 0}</span>
+            </div>`
+        ).join('');
+    }
+    dd.classList.remove('hidden');
+}
+
+function showCourseDropdown() {
+    const dd = document.getElementById('courseDropdown');
+    if (!dd.classList.contains('hidden')) return;
+    filterCourses();
+    dd.classList.remove('hidden');
+}
+
+function hideCourseDropdown() {
+    setTimeout(() => document.getElementById('courseDropdown').classList.add('hidden'), 200);
+}
+
+function selectCourse(id, name, price, el) {
+    courseSelected = { id, name, price };
+    document.getElementById('fldCourseId').value = id;
+    document.getElementById('fldCourseName').value = name;
+    document.getElementById('fldUnitPrice').value = price;
+    document.getElementById('courseInfo').innerHTML =
+        `<span class="text-gray-700">${name}</span><span class="text-gray-400 text-xs ml-2">${id} · ¥${price}</span>`;
+    document.getElementById('searchCourse').value = name;
+    document.getElementById('courseDropdown').classList.add('hidden');
+}
+
+function clearCourse() {
+    courseSelected = null;
+    document.getElementById('fldCourseId').value = '';
+    document.getElementById('fldCourseName').value = '';
+    document.getElementById('fldUnitPrice').value = '0';
+    document.getElementById('courseInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('searchCourse').value = '';
+    filterCourses();
+}
+
+// ═══════════════════════════════════════
+// 员工搜索下拉
+// ═══════════════════════════════════════
+let staffCache = [];
+
+function filterStaff() {
+    const q = document.getElementById('searchStaff').value.trim().toLowerCase();
+    const list = q ? staffCache.filter(s =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.staff_id || '').toLowerCase().includes(q) ||
+        (s.phone || '').includes(q)
+    ) : staffCache;
+
+    const dd = document.getElementById('staffDropdown');
+    if (list.length === 0) {
+        dd.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到匹配员工</div>';
+    } else {
+        dd.innerHTML = list.map(s =>
+            `<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between"
+                  onmousedown="selectStaff('${s.staff_id}', '${(s.name || '').replace(/'/g, "\\'")}', '${(s.position || '').replace(/'/g, "\\'")}', this)">
+                <span>${s.name || '-'}</span>
+                <span class="text-gray-400 text-xs ml-2">${s.staff_id || ''} · ${s.position || ''}</span>
+            </div>`
+        ).join('');
+    }
+    dd.classList.remove('hidden');
+}
+
+function showStaffDropdown() {
+    const dd = document.getElementById('staffDropdown');
+    if (!dd.classList.contains('hidden')) return;
+    filterStaff();
+    dd.classList.remove('hidden');
+}
+
+function hideStaffDropdown() {
+    setTimeout(() => document.getElementById('staffDropdown').classList.add('hidden'), 200);
+}
+
+function selectStaff(id, name, position, el) {
+    staffSelected = { id, name, position };
+    document.getElementById('fldStaffId').value = id;
+    document.getElementById('fldStaffName').value = name;
+    document.getElementById('staffInfo').innerHTML =
+        `<span class="text-gray-700">${name}</span><span class="text-gray-400 text-xs ml-2">${id} · ${position}</span>`;
+    document.getElementById('searchStaff').value = name;
+    document.getElementById('staffDropdown').classList.add('hidden');
+}
+
+function clearStaff() {
+    staffSelected = null;
+    document.getElementById('fldStaffId').value = '';
+    document.getElementById('fldStaffName').value = '';
+    document.getElementById('staffInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('searchStaff').value = '';
+    filterStaff();
+}
+
+// ═══════════════════════════════════════
+// 提交
+// ═══════════════════════════════════════
+function submitSale() {
+    const form = document.getElementById('saleForm');
+
+    const data = {};
+    const fields = form.querySelectorAll('input[name], select[name]');
+    fields.forEach(el => {
+        const name = el.getAttribute('name');
+        if (name) data[name] = el.value;
+    });
+
+    // 数字类型转换
+    data.bought_hours = parseInt(data.bought_hours) || 1;
+    data.bonus_hours = parseInt(data.bonus_hours) || 0;
+    data.actual_amount = parseFloat(data.actual_amount) || 0;
+    data.unit_price = parseFloat(data.unit_price) || 0;
+
+    // 清理空字符串
+    Object.keys(data).forEach(k => {
+        if (data[k] === '') data[k] = '';
+    });
+
+    fetch('/api/sales', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.id || result.sale_id) {
+            closeAddModal();
+            const el = document.getElementById('saleTable');
+            el.innerHTML = '<div class="text-center py-8 text-gray-400">加载中...</div>';
+            htmx.ajax('GET', '/api/sales/table', {target: '#saleTable'});
+        } else {
+            showError(result.detail || result.message || '保存失败');
+        }
+    })
+    .catch(e => showError('请求失败: ' + e));
+}
+
+function showError(msg) {
+    const el = document.getElementById('formError');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+}
+</script>
+{% endblock %}

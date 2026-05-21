@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">上课记录</h2>
+</div>
+
+<!-- 统计卡片 -->
+<div id="cardArea" hx-get="/api/class-records/cards" hx-trigger="load"></div>
+
+<!-- 筛选工具栏 -->
+<div class="mb-4 flex flex-wrap items-center gap-2">
+    <input type="text" id="keywordInput" placeholder="搜索会员/课程..."
+           class="w-full md:w-40 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+
+    <!-- 快速日期按钮 -->
+    <button onclick="setQuickDate('today')" class="px-3 py-1.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">今天</button>
+    <button onclick="setQuickDate('week')" class="px-3 py-1.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">本周</button>
+    <button onclick="setQuickDate('month')" class="px-3 py-1.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">本月</button>
+    <button onclick="setQuickDate('all')" class="px-3 py-1.5 text-xs border rounded hover:bg-gray-50 text-gray-500">全部</button>
+
+    <input type="date" id="dateFilter" class="px-3 py-2 border rounded-lg text-sm" title="选择具体日期">
+
+    <select id="statusFilter" class="px-3 py-2 border rounded-lg text-sm">
+        <option value="">全部状态</option>
+        <option value="已完成">已完成</option>
+        <option value="已签到">已签到</option>
+        <option value="已预约">已预约</option>
+        <option value="已取消">已取消</option>
+    </select>
+
+    <select id="coachFilter" class="px-3 py-2 border rounded-lg text-sm" title="按教练筛选">
+        <option value="">全部教练</option>
+    </select>
+
+    <span class="text-xs text-gray-400 mx-1">|</span>
+
+    <button onclick="doSearch()" class="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">🔍 查询</button>
+    <button onclick="resetFilters()" class="px-3 py-1.5 text-xs text-gray-500 border rounded hover:bg-gray-50">⟳ 重置</button>
+</div>
+
+<!-- 上课记录列表 -->
+<div id="classRecordTable" hx-get="/api/class-records/table" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+[V3.2.7 隐藏] 新增上课记录弹窗（未使用）
+&#x3C;div id="addModal" ...&#x3E;...&#x3C;/div&#x3E;
+════════════════════════════════════════════ -->
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 编辑弹窗 -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">编辑上课记录</h3>
+            <button onclick="document.getElementById('editModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form id="editForm" hx-put="" hx-target="#classRecordTable"
+              hx-on::after-request="if(event.detail.successful){document.getElementById('editModal').classList.add('hidden');refreshAll();}">
+            <div class="grid grid-cols-2 gap-4">
+                <div><label class="block text-sm text-gray-600 mb-1">会员编号</label>
+                    <input name="member_id" id="edit_member_id" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">会员姓名</label>
+                    <input name="member_name" id="edit_member_name" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">手机号</label>
+                    <input name="member_phone" id="edit_member_phone" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">课程名称</label>
+                    <input name="course_name" id="edit_course_name" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">教练姓名</label>
+                    <input name="coach_name" id="edit_coach_name" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">日期</label>
+                    <input name="class_date" id="edit_class_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">开始时间</label>
+                    <input name="start_time" id="edit_start_time" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">结束时间</label>
+                    <input name="end_time" id="edit_end_time" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">消耗课时</label>
+                    <input name="consumed_hours" id="edit_consumed_hours" type="number" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">状态</label>
+                    <select name="status" id="edit_status" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="已完成">已完成</option><option value="已签到">已签到</option>
+                        <option value="已预约">已预约</option><option value="已取消">已取消</option>
+                    </select></div>
+            </div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">评价</label>
+                <select name="evaluation" id="edit_evaluation" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    <option value="">无评价</option><option value="好评">好评 👍</option>
+                    <option value="中评">中评 👌</option><option value="差评">差评 👎</option>
+                </select></div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">会员反馈</label>
+                <textarea name="feedback" id="edit_feedback" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">上课心得/备注</label>
+                <textarea name="notes" id="edit_notes" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存修改</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- 评价弹窗 -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="evalModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">课程评价</h3>
+            <button onclick="document.getElementById('evalModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <div>
+            <label class="block text-sm text-gray-600 mb-1">评价</label>
+            <select id="eval_value" class="w-full px-3 py-2 border rounded-lg text-sm mb-3">
+                <option value="好评">好评 👍</option>
+                <option value="中评">中评 👌</option>
+                <option value="差评">差评 👎</option>
+            </select>
+            <label class="block text-sm text-gray-600 mb-1">会员反馈</label>
+            <textarea id="eval_feedback" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="输入反馈内容..."></textarea>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="document.getElementById('evalModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="button" id="evalSubmitBtn"
+                        class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">提交评价</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentEvalRecordId = null;
+
+// ═══════════════════════════════════════════
+// 加载教练下拉选项
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function() {
+    // Load coach options from existing records
+    fetch('/api/class-records/table?limit=500')
+        .then(r => r.text())
+        .then(html => {
+            // Extract unique coach names from table rows
+            const coaches = new Set();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            doc.querySelectorAll('tbody tr:nth-child(odd)').forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 4) {
+                    const coach = cells[3].textContent.trim();
+                    if (coach && coach !== '-') coaches.add(coach);
+                }
+            });
+            const sel = document.getElementById('coachFilter');
+            coaches.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                sel.appendChild(opt);
+            });
+        });
+});
+
+// ═══════════════════════════════════════════
+// 快速日期
+// ═══════════════════════════════════════════
+function setQuickDate(range) {
+    const dtInput = document.getElementById('dateFilter');
+    if (range === 'all') {
+        dtInput.value = '';
+        doSearch();
+        return;
+    }
+    const now = new Date();
+    if (range === 'today') {
+        dtInput.value = now.toISOString().slice(0, 10);
+    } else if (range === 'week') {
+        // Get Monday of this week
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - (now.getDay() || 7) + 1);
+        // Just set to today for simplicity (backend filters single date)
+        dtInput.value = now.toISOString().slice(0, 10);
+    } else if (range === 'month') {
+        dtInput.value = now.toISOString().slice(0, 10);
+    }
+    doSearch();
+}
+
+// ═══════════════════════════════════════════
+// 搜索 + 重置
+// ═══════════════════════════════════════════
+function doSearch() {
+    const kw = document.getElementById('keywordInput').value;
+    const dt = document.getElementById('dateFilter').value;
+    const st = document.getElementById('statusFilter').value;
+    const coach = document.getElementById('coachFilter').value;
+
+    let url = '/api/class-records/table?';
+    const params = [];
+    if (kw) params.push('keyword=' + encodeURIComponent(kw));
+    if (dt) params.push('class_date=' + encodeURIComponent(dt));
+    if (st) params.push('status=' + encodeURIComponent(st));
+    if (coach) params.push('coach=' + encodeURIComponent(coach));
+
+    htmx.ajax('GET', url + params.join('&'), { target: '#classRecordTable' });
+}
+
+function resetFilters() {
+    document.getElementById('keywordInput').value = '';
+    document.getElementById('dateFilter').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('coachFilter').value = '';
+    refreshAll();
+}
+
+// ═══════════════════════════════════════════
+// Enter 触发搜索
+// ═══════════════════════════════════════════
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.id === 'keywordInput') {
+        doSearch();
+    }
+});
+
+// ═══════════════════════════════════════════
+// 行展开详情
+// ═══════════════════════════════════════════
+function toggleDetail(recordId) {
+    const el = document.getElementById('detail-' + recordId);
+    if (el) el.classList.toggle('hidden');
+}
+
+// ═══════════════════════════════════════════
+// 编辑课程记录
+// ═══════════════════════════════════════════
+function openEditRecord(recordId) {
+    fetch('/api/class-records/' + recordId)
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById('edit_member_id').value = d.member_id || '';
+            document.getElementById('edit_member_name').value = d.member_name || '';
+            document.getElementById('edit_member_phone').value = d.member_phone || '';
+            document.getElementById('edit_course_name').value = d.course_name || '';
+            document.getElementById('edit_coach_name').value = d.coach_name || '';
+            document.getElementById('edit_class_date').value = d.class_date || '';
+            document.getElementById('edit_start_time').value = d.start_time || '';
+            document.getElementById('edit_end_time').value = d.end_time || '';
+            document.getElementById('edit_consumed_hours').value = d.consumed_hours || 1;
+            document.getElementById('edit_status').value = d.status || '已完成';
+            document.getElementById('edit_evaluation').value = d.evaluation || '';
+            document.getElementById('edit_feedback').value = d.feedback || '';
+            document.getElementById('edit_notes').value = d.notes || '';
+            document.getElementById('editForm').setAttribute('hx-put', '/api/class-records/' + recordId);
+            document.getElementById('editModal').classList.remove('hidden');
+        });
+}
+
+// ═══════════════════════════════════════════
+// 评价弹窗
+// ═══════════════════════════════════════════
+function openEval(recordId, currentEval, currentFeedback) {
+    currentEvalRecordId = recordId;
+    document.getElementById('eval_value').value = currentEval || '好评';
+    document.getElementById('eval_feedback').value = currentFeedback || '';
+    document.getElementById('evalModal').classList.remove('hidden');
+}
+
+document.getElementById('evalSubmitBtn')?.addEventListener('click', function() {
+    if (!currentEvalRecordId) return;
+    const val = document.getElementById('eval_value').value;
+    const fb = document.getElementById('eval_feedback').value;
+    fetch('/api/class-records/' + currentEvalRecordId + '/evaluation', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ evaluation: val, feedback: fb })
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('evalModal').classList.add('hidden');
+        refreshAll();
+    });
+});
+
+// ═══════════════════════════════════════════
+// 刷新
+// ═══════════════════════════════════════════
+function refreshAll() {
+    htmx.trigger('#cardArea', 'load');
+    htmx.trigger('#classRecordTable', 'load');
+}
+</script>
+
+{% endblock %}

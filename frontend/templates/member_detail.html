@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- 返回导航 -->
+<div class="flex items-center gap-3 mb-4">
+    <a href="/members" class="text-gray-400 hover:text-gray-600 text-sm">&larr; 返回列表</a>
+    <span class="text-gray-300">|</span>
+    <h2 class="text-lg font-semibold text-gray-800">
+        {{ member.name }}
+        <span class="text-sm text-gray-400 font-normal ml-1">{{ member.member_id }}</span>
+    </h2>
+    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{{ member.level or '普通' }}</span>
+    <span class="px-2 py-0.5 {% if member.status in ('正常','有效') %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} rounded text-xs">{{ member.status or '正常' }}</span>
+</div>
+
+<!-- 信息卡片区域 -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+    <!-- 左侧：照片 + 基本资料 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="flex gap-4">
+            <!-- 照片 -->
+            <div class="w-28 h-36 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
+                {% if member.photo_path %}
+                <img src="/api/members/{{ member.member_id }}/photo" class="w-full h-full object-cover" alt="会员照片">
+                {% else %}
+                <div class="text-center text-gray-400">
+                    <div class="text-3xl">📷</div>
+                    <div class="text-xs">暂无照片</div>
+                </div>
+                {% endif %}
+            </div>
+            <!-- 基本资料 -->
+            <div class="flex-1 space-y-1.5 text-sm">
+                <div><span class="text-gray-400">性别：</span>{{ member.gender or '-' }}</div>
+                <div><span class="text-gray-400">手机：</span>{{ member.phone or '-' }}</div>
+                <div><span class="text-gray-400">出生：</span>{{ member.birth_date or '-' }} <span class="text-gray-400 text-xs">({{ member.age or '?' }}岁)</span></div>
+                <div><span class="text-gray-400">身高：</span>{{ member.height or '-' }} cm</div>
+                <div><span class="text-gray-400">体重：</span>{{ member.weight or '-' }} kg</div>
+                <div><span class="text-gray-400">体脂：</span>{{ member.body_fat or '-' }}%</div>
+                <div><span class="text-gray-400">来源：</span>{{ member.source or '-' }}</div>
+                <div><span class="text-gray-400">跟进：</span>{{ member.staff_name or '无' }}</div>
+            </div>
+        </div>
+        <div class="mt-3 pt-3 border-t text-sm text-gray-500">
+            <div><span class="text-gray-400">备注：</span>{{ member.remark or '无' }}</div>
+            <div class="mt-1"><span class="text-gray-400">手环：</span>{{ member.wristband_id or '未绑定' }}</div>
+        </div>
+    </div>
+
+    <!-- 中间：统计摘要 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-sm text-gray-500 mb-3">会员统计</div>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-blue-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500">累计签到</div>
+                <div class="text-xl font-bold text-blue-700">{{ member.total_checkin_days or 0 }}</div>
+                <div class="text-xs text-gray-400">天</div>
+            </div>
+            <div class="bg-green-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500">剩余课时</div>
+                <div class="text-xl font-bold text-green-700">{{ member.remaining_lessons or 0 }}</div>
+                <div class="text-xs text-gray-400">节</div>
+            </div>
+            <div class="bg-yellow-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500">储值余额</div>
+                <div class="text-xl font-bold text-yellow-700">{{ "%.0f"|format(member.balance or 0) }}</div>
+                <div class="text-xs text-gray-400">元</div>
+            </div>
+            <div class="{% if member.end_date and member.end_date < today %}bg-red-50{% else %}bg-purple-50{% endif %} rounded-lg p-3 text-center">
+                <div class="text-xs text-gray-500">{% if member.end_date %}到期日期{% else %}开卡日期{% endif %}</div>
+                <div class="text-lg font-bold {% if member.end_date and member.end_date < today %}text-red-600{% else %}text-purple-700{% endif %}">
+                    {{ member.end_date or member.start_date or '-' }}
+                </div>
+                <div class="text-xs text-gray-400">
+                    {% if member.end_date %}
+                        {% set remaining = (member.end_date - today).days %}
+                        {% if remaining >= 0 %}剩{{ remaining }}天{% else %}已过期{% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="mt-4 text-sm text-gray-500">
+            <div>最近签到：{{ member.last_checkin_date or '暂无' }}</div>
+            <div>注册时间：{{ member.created_at.strftime('%Y-%m-%d %H:%M') if member.created_at else '-' }}</div>
+        </div>
+    </div>
+
+    <!-- 右侧：快捷操作 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <div class="text-sm text-gray-500 mb-3">快捷操作</div>
+        <div class="space-y-2">
+            <a href="/members" onclick="sessionStorage.setItem('editMember','{{ member.member_id }}')"
+               class="block w-full text-center px-4 py-2.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                ✏️ 编辑会员资料
+            </a>
+            <a href="/checkin?q={{ member.member_id }}"
+               class="block w-full text-center px-4 py-2.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
+                ✅ 核销进场
+            </a>
+            <a href="/recharges"
+               class="block w-full text-center px-4 py-2.5 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+                💰 充值
+            </a>
+            <a href="/sales"
+               class="block w-full text-center px-4 py-2.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                💳 售课
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Tab 导航 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="flex gap-0 border-b border-gray-200">
+        <button id="tabCards" onclick="switchTab('cards')"
+                class="px-5 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600">
+            🎫 会籍卡
+        </button>
+        <button id="tabCheckins" onclick="switchTab('checkins')"
+                class="px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent">
+            📋 进场记录
+        </button>
+        <button id="tabClasses" onclick="switchTab('classes')"
+                class="px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent">
+            📝 上课记录
+        </button>
+        <button id="tabBody" onclick="switchTab('body')"
+                class="px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent">
+            📏 体测记录
+        </button>
+        <button id="tabPurchases" onclick="switchTab('purchases')"
+                class="px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 border-b-2 border-transparent">
+            🛒 消费记录
+        </button>
+    </div>
+
+    <!-- Tab 内容区 -->
+    <div class="p-4">
+        <div id="tabCardsContent" hx-get="/api/members/{{ member_id }}/cards-html" hx-trigger="load">
+            <div class="text-center py-8 text-gray-400">加载中...</div>
+        </div>
+        <div id="tabCheckinsContent" style="display:none">
+            <div class="text-center py-8 text-gray-400">加载中...</div>
+        </div>
+        <div id="tabClassesContent" style="display:none">
+            <div class="text-center py-8 text-gray-400">加载中...</div>
+        </div>
+        <div id="tabBodyContent" style="display:none">
+            <div class="text-center py-8 text-gray-400">加载中...</div>
+        </div>
+        <div id="tabPurchasesContent" style="display:none">
+            <div class="text-center py-8 text-gray-400">加载中...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+var tabLoaded = { cards: true, checkins: false, classes: false, body: false, purchases: false };
+var tabIds = ['Cards', 'Checkins', 'Classes', 'Body', 'Purchases'];
+var tabEndpoints = {
+    Cards: '/api/members/{{ member_id }}/cards-html',
+    Checkins: '/api/members/{{ member_id }}/checkins-html',
+    Classes: '/api/members/{{ member_id }}/class-records-html',
+    Body: '/api/members/{{ member_id }}/body-measurements-html',
+    Purchases: '/api/members/{{ member_id }}/purchases-html',
+};
+
+function switchTab(tab) {
+    tabIds.forEach(function(t) {
+        var btn = document.getElementById('tab' + t);
+        var content = document.getElementById('tab' + t + 'Content');
+        var isActive = (t.toLowerCase() === tab);
+        content.style.display = isActive ? '' : 'none';
+        if (isActive) {
+            btn.classList.remove('text-gray-500', 'border-transparent');
+            btn.classList.add('text-blue-600', 'border-blue-600');
+        } else {
+            btn.classList.remove('text-blue-600', 'border-blue-600');
+            btn.classList.add('text-gray-500', 'border-transparent');
+        }
+        // 懒加载
+        if (isActive && !tabLoaded[tab]) {
+            var url = tabEndpoints[t];
+            htmx.ajax('GET', url, {target: '#tab' + t + 'Content', swap: 'innerHTML'});
+            tabLoaded[tab] = true;
+        }
+    });
+}
+
+// 从列表页跳转过来时自动打开编辑弹窗
+document.addEventListener('DOMContentLoaded', function() {
+    var editId = sessionStorage.getItem('editMember');
+    if (editId === '{{ member_id }}') {
+        sessionStorage.removeItem('editMember');
+        window.location.href = '/members?edit=' + editId;
+    }
+});
+</script>
+{% endblock %}

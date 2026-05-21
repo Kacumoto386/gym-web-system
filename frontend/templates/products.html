@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">🛒 商品零售</h2>
+    <button onclick="document.getElementById('addProductModal').classList.remove('hidden')"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">+ 新增商品</button>
+</div>
+
+<!-- Tab 切换 -->
+<div class="flex gap-1 mb-4">
+    <button id="tabCart" onclick="switchTab('cart')" class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white">购物车结账</button>
+    <button id="tabProducts" onclick="switchTab('products')" class="px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300">商品管理</button>
+    <button id="tabSales" onclick="switchTab('sales')" class="px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300">零售记录</button>
+</div>
+
+<!-- ──────── 购物车结账页面 ──────── -->
+<div id="cartSection">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- 左侧：商品列表 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-700">📦 商品选择</span>
+                <input id="productSearch" type="text" placeholder="搜索商品..."
+                    class="w-40 px-2 py-1 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    oninput="filterProducts()">
+            </div>
+            <div id="productList" class="divide-y divide-gray-50 max-h-96 overflow-y-auto p-2">
+                <div class="text-center py-8 text-gray-400 text-sm">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 中间：购物车清单 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-700">🛒 购物车</span>
+                <span id="cartCount" class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">0 件</span>
+            </div>
+            <div id="cartItems" class="max-h-96 overflow-y-auto p-2">
+                <div class="text-center py-8 text-gray-400 text-sm">购物车为空</div>
+            </div>
+        </div>
+
+        <!-- 右侧：结算区 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="px-4 py-3 border-b border-gray-100">
+                <span class="text-sm font-medium text-gray-700">💳 结算</span>
+            </div>
+            <div class="p-4 space-y-3">
+                <!-- 选择会员 -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">会员（可选）</label>
+                    <div class="flex gap-2">
+                        <input id="checkoutMemberId" type="text" placeholder="编号"
+                            class="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            oninput="lookupMember()">
+                        <input id="checkoutMemberName" type="text" placeholder="姓名" readonly
+                            class="flex-1 px-3 py-2 border rounded-lg text-sm bg-gray-50">
+                    </div>
+                    <div id="balanceInfo" class="hidden mt-1 text-xs text-green-600"></div>
+                </div>
+
+                <!-- 小计 -->
+                <div class="border-t pt-3">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-500">商品小计</span>
+                        <span id="cartSubtotal" class="font-semibold text-gray-800">¥0.00</span>
+                    </div>
+                </div>
+
+                <!-- 使用储值 -->
+                <div class="flex items-center gap-2">
+                    <input id="useBalance" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                    <label for="useBalance" class="text-sm text-gray-600">使用会员储值</label>
+                </div>
+
+                <!-- 支付方式 -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">支付方式</label>
+                    <select id="paymentMethod" class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                        <option value="现金">现金</option>
+                        <option value="微信">微信</option>
+                        <option value="支付宝">支付宝</option>
+                        <option value="银行卡">银行卡</option>
+                    </select>
+                </div>
+
+                <!-- 操作员 -->
+                <div>
+                    <label class="block text-xs text-gray-500 mb-1">操作员</label>
+                    <input id="checkoutOperator" type="text" placeholder="经办人"
+                        class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+                </div>
+
+                <!-- 结账按钮 -->
+                <button id="checkoutBtn" onclick="submitCart()"
+                    class="w-full bg-green-600 text-white py-2.5 rounded-lg hover:bg-green-700 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    🛒 确认结账
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ──────── 商品管理页面 ──────── -->
+<div id="productsSection" class="hidden">
+    <div id="productTable" hx-get="/api/products/table" hx-trigger="load"><div class="text-center py-8 text-gray-400">加载中...</div></div>
+</div>
+
+<!-- ──────── 零售记录页面 ──────── -->
+<div id="salesSection" class="hidden">
+    <div id="productSaleTable" hx-get="/api/product-sales/table" hx-trigger="load"><div class="text-center py-8 text-gray-400">加载中...</div></div>
+</div>
+
+<!-- ──────── 新增商品弹窗 ──────── -->
+<div id="addProductModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">新增商品</h3>
+            <button onclick="document.getElementById('addProductModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form hx-post="/api/products" hx-target="#productTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addProductModal').classList.add('hidden'); this.reset();}">
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-sm text-gray-600 mb-1">商品名 *</label><input name="name" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">类别</label><input name="category" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">进价</label><input name="cost_price" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">售价</label><input name="selling_price" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">库存</label><input name="stock" type="number" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">单位</label><input name="unit" value="个" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div class="col-span-2"><label class="block text-sm text-gray-600 mb-1">供应商</label><input name="supplier" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="document.getElementById('addProductModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// ────────── 购物车状态 ──────────
+let cart = [];  // [{product_id, product_name, unit_price, quantity, total_price, product_obj}]
+let products = [];
+let currentMember = null;  // {member_id, member_name, balance}
+
+// ────────── Tab 切换 ──────────
+function switchTab(tab) {
+    document.getElementById('cartSection').classList.toggle('hidden', tab !== 'cart');
+    document.getElementById('productsSection').classList.toggle('hidden', tab !== 'products');
+    document.getElementById('salesSection').classList.toggle('hidden', tab !== 'sales');
+    const btnClass = (t, active) => `px-4 py-2 text-sm rounded-lg ${t === active ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`;
+    document.getElementById('tabCart').className = btnClass(tab, 'cart');
+    document.getElementById('tabProducts').className = btnClass(tab, 'products');
+    document.getElementById('tabSales').className = btnClass(tab, 'sales');
+    if (tab === 'cart') loadProducts();
+}
+
+// ────────── 加载商品列表 ──────────
+function loadProducts() {
+    fetch('/api/products?limit=200')
+        .then(r => r.json())
+        .then(data => {
+            products = data;
+            renderProductList();
+        });
+}
+
+function renderProductList(filter = '') {
+    const el = document.getElementById('productList');
+    const filtered = filter
+        ? products.filter(p => p.name.includes(filter) || (p.category || '').includes(filter) || (p.product_id || '').includes(filter))
+        : products;
+
+    if (filtered.length === 0) {
+        el.innerHTML = '<div class="text-center py-8 text-gray-400 text-sm">暂无商品</div>';
+        return;
+    }
+
+    el.innerHTML = filtered.map(p => {
+        const inCart = cart.find(c => c.product_id === p.product_id);
+        const cartQty = inCart ? inCart.quantity : 0;
+        const lowStock = (p.stock || 0) <= 5 && (p.stock || 0) > 0;
+        const outOfStock = (p.stock || 0) <= 0;
+        return `<div class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors ${outOfStock ? 'opacity-40' : ''}">
+            <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-800 truncate">${p.name}</div>
+                <div class="flex items-center gap-2 text-xs text-gray-400">
+                    <span>¥${(p.selling_price || 0).toFixed(2)}</span>
+                    <span class="${lowStock ? 'text-red-400' : ''}">${p.stock || 0} ${p.unit || '个'}</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-1 ml-2">
+                ${outOfStock
+                    ? '<span class="text-xs text-red-400">缺货</span>'
+                    : cartQty > 0
+                        ? `<button class="w-6 h-6 flex items-center justify-center rounded bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs" onclick="changeQty('${p.product_id}', -1)">−</button>
+                           <span class="w-6 text-center text-sm font-medium">${cartQty}</span>
+                           <button class="w-6 h-6 flex items-center justify-center rounded bg-blue-100 text-blue-600 hover:bg-blue-200 text-xs" onclick="changeQty('${p.product_id}', 1)">+</button>`
+                        : `<button class="px-2.5 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors" onclick="changeQty('${p.product_id}', 1)">+ 加入</button>`
+                }
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ────────── 购物车操作 ──────────
+function changeQty(productId, delta) {
+    const p = products.find(x => x.product_id === productId);
+    if (!p) return;
+
+    const existing = cart.find(c => c.product_id === productId);
+    if (existing) {
+        existing.quantity += delta;
+        existing.total_price = existing.quantity * existing.unit_price;
+        if (existing.quantity <= 0) {
+            cart = cart.filter(c => c.product_id !== productId);
+        }
+    } else if (delta > 0) {
+        cart.push({
+            product_id: p.product_id,
+            product_name: p.name,
+            unit_price: parseFloat(p.selling_price || 0),
+            quantity: 1,
+            total_price: parseFloat(p.selling_price || 0),
+            stock: p.stock || 0
+        });
+    }
+
+    renderProductList(document.getElementById('productSearch')?.value || '');
+    renderCart();
+}
+
+function renderCart() {
+    const el = document.getElementById('cartItems');
+    const countEl = document.getElementById('cartCount');
+    const subtotalEl = document.getElementById('cartSubtotal');
+
+    countEl.textContent = `${cart.length} 件`;
+
+    if (cart.length === 0) {
+        el.innerHTML = '<div class="text-center py-8 text-gray-400 text-sm">购物车为空</div>';
+        subtotalEl.textContent = '¥0.00';
+        document.getElementById('checkoutBtn').disabled = true;
+        return;
+    }
+
+    const total = cart.reduce((s, c) => s + c.total_price, 0);
+    subtotalEl.textContent = `¥${total.toFixed(2)}`;
+    document.getElementById('checkoutBtn').disabled = false;
+
+    el.innerHTML = cart.map(c => `<div class="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+        <div class="flex-1 min-w-0">
+            <div class="text-sm text-gray-800 truncate">${c.product_name}</div>
+            <div class="text-xs text-gray-400">¥${c.unit_price.toFixed(2)} x ${c.quantity}</div>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-800">¥${c.total_price.toFixed(2)}</span>
+            <button class="text-red-400 hover:text-red-600 text-xs" onclick="removeFromCart('${c.product_id}')">✕</button>
+        </div>
+    </div>`).join('');
+}
+
+function removeFromCart(productId) {
+    cart = cart.filter(c => c.product_id !== productId);
+    renderProductList(document.getElementById('productSearch')?.value || '');
+    renderCart();
+}
+
+function filterProducts() {
+    renderProductList(document.getElementById('productSearch')?.value || '');
+}
+
+// ────────── 会员查询 ──────────
+let memberLookupTimer = null;
+
+function lookupMember() {
+    clearTimeout(memberLookupTimer);
+    const id = document.getElementById('checkoutMemberId').value.trim();
+    if (!id) {
+        document.getElementById('checkoutMemberName').value = '';
+        document.getElementById('balanceInfo').classList.add('hidden');
+        currentMember = null;
+        return;
+    }
+    memberLookupTimer = setTimeout(() => {
+        fetch(`/api/members/${id}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(m => {
+                if (m) {
+                    document.getElementById('checkoutMemberName').value = m.name;
+                    document.getElementById('balanceInfo').classList.remove('hidden');
+                    document.getElementById('balanceInfo').textContent = `💰 储值余额: ¥${(m.balance || 0).toFixed(2)}`;
+                    currentMember = m;
+                } else {
+                    document.getElementById('checkoutMemberName').value = '未找到';
+                    document.getElementById('balanceInfo').classList.add('hidden');
+                    currentMember = null;
+                }
+            });
+    }, 300);
+}
+
+// ────────── 提交购物车 ──────────
+function submitCart() {
+    if (cart.length === 0) return;
+
+    const memberId = document.getElementById('checkoutMemberId').value.trim();
+    const memberName = document.getElementById('checkoutMemberName').value;
+    const useBalance = document.getElementById('useBalance').checked;
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const operator = document.getElementById('checkoutOperator').value.trim();
+
+    // 校验
+    if (useBalance && !memberId) {
+        alert('请先选择会员');
+        return;
+    }
+
+    const body = {
+        items: cart.map(c => ({
+            product_id: c.product_id,
+            product_name: c.product_name,
+            quantity: c.quantity,
+            unit_price: c.unit_price,
+            total_price: c.total_price
+        })),
+        member_id: memberId,
+        member_name: memberName === '未找到' ? '' : memberName,
+        payment_method: paymentMethod,
+        use_balance: useBalance,
+        operator: operator,
+        remark: ''
+    };
+
+    document.getElementById('checkoutBtn').disabled = true;
+    document.getElementById('checkoutBtn').textContent = '⏳ 提交中...';
+
+    fetch('/api/product-sales/batch', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+    })
+        .then(r => r.json().then(j => ({ok: r.ok, data: j})))
+        .then(({ok, data}) => {
+            if (!ok) {
+                alert(data.detail || '提交失败');
+                document.getElementById('checkoutBtn').disabled = false;
+                document.getElementById('checkoutBtn').textContent = '🛒 确认结账';
+                return;
+            }
+            // 成功
+            cart = [];
+            renderCart();
+            renderProductList(document.getElementById('productSearch')?.value || '');
+            document.getElementById('checkoutMemberId').value = '';
+            document.getElementById('checkoutMemberName').value = '';
+            document.getElementById('balanceInfo').classList.add('hidden');
+            document.getElementById('useBalance').checked = false;
+            document.getElementById('checkoutOperator').value = '';
+            currentMember = null;
+
+            alert(`✅ ${data.message}`);
+
+            document.getElementById('checkoutBtn').disabled = false;
+            document.getElementById('checkoutBtn').textContent = '🛒 确认结账';
+        })
+        .catch(err => {
+            alert('网络错误: ' + err.message);
+            document.getElementById('checkoutBtn').disabled = false;
+            document.getElementById('checkoutBtn').textContent = '🛒 确认结账';
+        });
+}
+
+// ────────── 加载完成时自动加载商品 ──────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadProducts();
+});
+</script>
+{% endblock %}

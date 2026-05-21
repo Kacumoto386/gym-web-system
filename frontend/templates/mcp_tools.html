@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - {{ _get_system_name() }}</title>
+    <script src="/static/tailwind.min.js"></script>
+    <script src="/static/htmx.min.js"></script>
+    <style>
+        .mcp-sidebar::-webkit-scrollbar { width: 4px; }
+        .mcp-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+        .mcp-sidebar::-webkit-scrollbar-track { background: transparent; }
+        .json-view { background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 1rem; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; }
+        .badge-read-only { background: #dbeafe; color: #1d4ed8; }
+        .badge-workspace-write { background: #fef3c7; color: #d97706; }
+        .badge-danger { background: #fee2e2; color: #dc2626; }
+        .tool-card { transition: all 0.15s ease; }
+        .tool-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .status-ok { background: #22c55e; }
+        .status-warn { background: #eab308; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+    <!-- 侧边栏 -->
+    <aside class="mcp-sidebar fixed top-0 left-0 w-56 h-screen bg-blue-700 text-white flex flex-col overflow-y-auto z-50 shadow-xl">
+        <div class="px-4 py-4 border-b border-blue-600">
+            <h1 class="text-base font-bold tracking-wide">🧩 MCP 工具管理</h1>
+            <span class="text-blue-300 text-xs">v1.0.0</span>
+        </div>
+        <nav class="flex-1 px-2 py-3 space-y-0.5">
+            <a href="/" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors">
+                <span>🏠</span> 返回首页
+            </a>
+            <div class="border-t border-blue-600 my-2"></div>
+            <div class="px-3 py-1 text-xs text-blue-300 uppercase tracking-wider">工具分类</div>
+            {% for cat in tools_by_category.keys() %}
+            <a href="#cat-{{ cat }}" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors">
+                <span class="status-dot status-ok"></span> {{ cat }}
+                <span class="ml-auto text-blue-300 text-xs">{{ tools_by_category[cat]|length }}</span>
+            </a>
+            {% endfor %}
+            <div class="border-t border-blue-600 my-2"></div>
+            <a href="/api/mcp/server-info" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors">
+                <span>ℹ️</span> 服务器信息 JSON
+            </a>
+            <a href="/api/mcp/parity-report" target="_blank" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm hover:bg-blue-600 transition-colors">
+                <span>📊</span> 兼容性报告 JSON
+            </a>
+        </nav>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="ml-56 flex-1 p-6">
+        <!-- 头部统计 -->
+        <div class="mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">🧩 MCP 工具管理</h2>
+            <p class="text-gray-500 mt-1">从 Claw Code 移植的 ToolExecutor + MCP 架构</p>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="text-gray-500 text-sm">工具总数</div>
+                <div class="text-2xl font-bold text-blue-600 mt-1">{{ tool_count }}</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="text-gray-500 text-sm">工具分类</div>
+                <div class="text-2xl font-bold text-green-600 mt-1">{{ tools_by_category.keys()|length }}</div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="text-gray-500 text-sm">只读工具</div>
+                <div class="text-2xl font-bold text-blue-600 mt-1">
+                    {{ tools_by_category.values()|sum(attribute='selectattr', 'permission_mode.value', '==', 'read_only')|list|length }}
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div class="text-gray-500 text-sm">写入工具</div>
+                <div class="text-2xl font-bold text-amber-600 mt-1">
+                    {{ tools_by_category.values()|sum(attribute='selectattr', 'permission_mode.value', '==', 'workspace_write')|list|length }}
+                </div>
+            </div>
+        </div>
+
+        <!-- 工具列表 -->
+        {% for cat, tools in tools_by_category.items() %}
+        <section id="cat-{{ cat }}" class="mb-8">
+            <div class="flex items-center gap-2 mb-4">
+                <h3 class="text-lg font-semibold text-gray-700">{{ cat }}</h3>
+                <span class="text-sm text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{{ tools|length }} 个工具</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {% for tool in tools %}
+                <div class="tool-card bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div class="flex items-start justify-between mb-2">
+                        <h4 class="font-mono text-sm font-semibold text-gray-800">{{ tool.name }}</h4>
+                        {% set mode = tool.permission_mode.value %}
+                        {% if mode == 'read_only' %}
+                        <span class="badge-read-only text-xs px-2 py-0.5 rounded-full">只读</span>
+                        {% elif mode == 'workspace_write' %}
+                        <span class="badge-workspace-write text-xs px-2 py-0.5 rounded-full">写入</span>
+                        {% else %}
+                        <span class="badge-danger text-xs px-2 py-0.5 rounded-full">危险</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-xs text-gray-500 mb-3">{{ tool.description }}</p>
+                    
+                    <!-- 标签 -->
+                    {% if tool.tags %}
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        {% for tag in tool.tags %}
+                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- 快速测试 -->
+                    <div class="border-t border-gray-100 pt-2 mt-2">
+                        <div class="flex items-center gap-2">
+                            <input type="text" 
+                                   id="test-input-{{ tool.name }}" 
+                                   placeholder="输入参数 JSON (可选)" 
+                                   class="flex-1 text-xs border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-blue-400">
+                            <button onclick="testTool('{{ tool.name }}')" 
+                                    class="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">
+                                测试
+                            </button>
+                        </div>
+                        <pre id="test-result-{{ tool.name }}" class="json-view text-xs mt-2 hidden"></pre>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+
+        <!-- MCP 协议测试区 -->
+        <section class="mb-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">📡 MCP 协议测试</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button onclick="mcpPing()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm transition-colors">
+                    🏓 Ping
+                </button>
+                <button onclick="mcpListTools()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm transition-colors">
+                    📋 列出工具
+                </button>
+                <button onclick="mcpListResources()" class="bg-green-50 hover:bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm transition-colors">
+                    📂 列出资源
+                </button>
+                <button onclick="mcpServerInfo()" class="bg-purple-50 hover:bg-purple-100 text-purple-700 px-4 py-2 rounded-lg text-sm transition-colors">
+                    ℹ️ 服务器信息
+                </button>
+            </div>
+            <pre id="mcp-test-result" class="json-view mt-4 text-sm max-h-96 overflow-y-auto"></pre>
+        </section>
+    </main>
+
+    <script>
+        async function testTool(name) {
+            const input = document.getElementById(`test-input-${name}`);
+            const result = document.getElementById(`test-result-${name}`);
+            let params = {};
+            try {
+                if (input.value.trim()) {
+                    params = JSON.parse(input.value);
+                }
+            } catch(e) {
+                result.textContent = `❌ JSON 解析错误: ${e.message}`;
+                result.classList.remove('hidden');
+                return;
+            }
+            
+            result.classList.remove('hidden');
+            result.textContent = '⏳ 执行中...';
+            
+            try {
+                const resp = await fetch('/api/mcp/call-tool', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, arguments: params}),
+                });
+                const data = await resp.json();
+                result.textContent = JSON.stringify(data, null, 2);
+            } catch(e) {
+                result.textContent = `❌ 请求失败: ${e.message}`;
+            }
+        }
+
+        async function mcpPing() {
+            const el = document.getElementById('mcp-test-result');
+            try {
+                const resp = await fetch('/api/mcp/ping');
+                const data = await resp.json();
+                el.textContent = JSON.stringify(data, null, 2);
+            } catch(e) {
+                el.textContent = `❌ 失败: ${e.message}`;
+            }
+        }
+
+        async function mcpListTools() {
+            const el = document.getElementById('mcp-test-result');
+            try {
+                const resp = await fetch('/api/mcp/tools');
+                const data = await resp.json();
+                el.textContent = JSON.stringify(data, null, 2);
+            } catch(e) {
+                el.textContent = `❌ 失败: ${e.message}`;
+            }
+        }
+
+        async function mcpListResources() {
+            const el = document.getElementById('mcp-test-result');
+            try {
+                const resp = await fetch('/api/mcp/resources');
+                const data = await resp.json();
+                el.textContent = JSON.stringify(data, null, 2);
+            } catch(e) {
+                el.textContent = `❌ 失败: ${e.message}`;
+            }
+        }
+
+        async function mcpServerInfo() {
+            const el = document.getElementById('mcp-test-result');
+            try {
+                const resp = await fetch('/api/mcp/server-info');
+                const data = await resp.json();
+                el.textContent = JSON.stringify(data, null, 2);
+            } catch(e) {
+                el.textContent = `❌ 失败: ${e.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

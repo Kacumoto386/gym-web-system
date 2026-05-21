@@ -1,0 +1,944 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">👥 会员管理</h2>
+    <button onclick="openAddMemberModal()"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+        + 新增会员
+    </button>
+</div>
+
+<!-- 统计卡片 -->
+<div id="memberStats" hx-get="/api/members/stats" hx-trigger="load">
+    <div class="text-center py-4 text-gray-400 text-sm">加载中...</div>
+</div>
+
+<!-- 多维筛选栏 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+    <div class="flex flex-wrap items-center gap-3 mb-3">
+        <div class="relative flex-1 min-w-[200px]">
+            <span class="absolute left-3 top-2.5 text-gray-400 text-sm">🔍</span>
+            <input type="text" id="filterQ" placeholder="搜索姓名/手机号/编号..."
+                   class="w-full pl-8 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+        </div>
+        <select id="filterLevel" class="px-3 py-2 border rounded-lg text-sm bg-white">
+            <option value="">全部等级</option>
+        </select>
+        <select id="filterStatus" class="px-3 py-2 border rounded-lg text-sm bg-white">
+            <option value="">全部状态</option>
+        </select>
+        <select id="filterSource" class="px-3 py-2 border rounded-lg text-sm bg-white">
+            <option value="">全部来源</option>
+        </select>
+        <button onclick="doSearch()" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">🔍 查询</button>
+        <button onclick="resetFilters()" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">↻ 重置</button>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+        <select id="filterStaff" class="px-3 py-2 border rounded-lg text-sm bg-white">
+            <option value="">全部员工</option>
+        </select>
+        <span class="text-sm text-gray-500">注册日期:</span>
+        <input type="date" id="filterRegFrom" class="px-3 py-2 border rounded-lg text-sm w-36">
+        <span class="text-gray-400 text-sm">至</span>
+        <input type="date" id="filterRegTo" class="px-3 py-2 border rounded-lg text-sm w-36">
+        <span class="text-xs text-gray-400 mx-1">|</span>
+        <span class="text-sm text-gray-500">最近签到:</span>
+        <input type="date" id="filterCheckinFrom" class="px-3 py-2 border rounded-lg text-sm w-36">
+        <span class="text-gray-400 text-sm">至</span>
+        <input type="date" id="filterCheckinTo" class="px-3 py-2 border rounded-lg text-sm w-36">
+        <button onclick="quickDate('today')" class="px-3 py-1.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">今天</button>
+        <button onclick="quickDate('week')" class="px-3 py-1.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">本周</button>
+        <button onclick="quickDate('month')" class="px-3 py-1.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">本月</button>
+        <button onclick="quickDate('all')" class="px-3 py-1.5 text-xs border rounded hover:bg-gray-50 text-gray-500">全部</button>
+    </div>
+</div>
+
+<!-- 会员表格 -->
+<div id="memberTable" hx-get="/api/members/table" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
+<!-- 新增会员对话框 -->
+<div id="addModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">新增会员</h3>
+            <button onclick="document.getElementById('addModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form hx-post="/api/members" hx-target="#memberTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addModal').classList.add('hidden'); this.reset(); htmx.ajax('GET','/api/members/stats',{target:'#memberStats'});}">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">姓名 *</label>
+                    <input name="name" id="add_name" required class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">性别</label>
+                    <select name="gender" id="add_gender" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="男">男</option><option value="女">女</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">手机号 *</label>
+                    <input name="phone" id="add_phone" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">会员等级</label>
+                    <select name="level" id="add_level" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="普通">普通</option><option value="银卡">银卡</option><option value="金卡">金卡</option><option value="钻石">钻石</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">身高(cm)</label>
+                    <input name="height" id="add_height" type="number" step="0.1" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">体重(kg)</label>
+                    <input name="weight" id="add_weight" type="number" step="0.1" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">来源</label>
+                    <input name="source" id="add_source" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="转介绍/线上/到店">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">出生日期</label>
+                    <div class="flex gap-2">
+                        <input name="birth_date" id="add_birth_date" type="date" class="flex-1 px-3 py-2 border rounded-lg text-sm" onchange="updateAddAge()">
+                        <input id="add_age" readonly class="w-16 px-3 py-2 border bg-gray-50 rounded-lg text-sm text-gray-500 text-center" placeholder="年龄" title="自动计算">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">跟进员工</label>
+                    <select name="staff_id" id="add_staff_id" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">—— 不指定 ——</option>
+                    </select>
+                    <input type="hidden" name="staff_name" id="add_staff_name">
+                </div>
+            </div>
+            <div class="mt-4">
+                <label class="block text-sm text-gray-600 mb-1">备注</label>
+                <textarea name="remark" id="add_remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')"
+                        class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑会员对话框（含照片上传） -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">编辑会员</h3>
+            <button onclick="document.getElementById('editModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+
+        <div class="flex gap-6">
+            <!-- 左侧：照片区域 -->
+            <div class="w-44 flex-shrink-0">
+                <div class="text-sm text-gray-600 mb-2">会员照片</div>
+                <div id="photoArea" class="w-40 h-48 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden">
+                    <div id="photoPlaceholder" class="text-center text-gray-400">
+                        <div class="text-3xl mb-1">📷</div>
+                        <div class="text-xs">暂无照片</div>
+                    </div>
+                    <img id="photoPreview" class="hidden w-full h-full object-cover" alt="会员照片">
+                </div>
+                <div class="flex gap-1 mt-2">
+                    <label class="flex-1 cursor-pointer text-center px-2 py-1.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                        📤 上传
+                        <input type="file" id="photoUpload" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="uploadPhoto(this)">
+                    </label>
+                    <button type="button" onclick="openCamera()" class="flex-1 px-2 py-1.5 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200">
+                        📸 拍照
+                    </button>
+                    <button id="deletePhotoBtn" onclick="deletePhoto()" class="hidden px-2 py-1.5 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200">🗑️ 删除</button>
+                </div>
+                <div id="uploadProgress" class="hidden text-xs text-green-600 mt-1 text-center">上传中...</div>
+            </div>
+
+            <!-- 右侧：表单 -->
+            <div class="flex-1">
+                <form id="editForm" onsubmit="saveEditMember(event)">
+                    <input type="hidden" id="edit_member_id" name="member_id">
+                    <input type="hidden" id="edit_staff_name" name="staff_name">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-sm text-gray-600 mb-1">姓名 *</label><input name="name" id="edit_name" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">性别</label>
+                            <select name="gender" id="edit_gender" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                <option value="男">男</option><option value="女">女</option>
+                            </select>
+                        </div>
+                        <div><label class="block text-sm text-gray-600 mb-1">手机号 *</label><input name="phone" id="edit_phone" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">会员等级</label>
+                            <select name="level" id="edit_level" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                <option value="普通">普通</option><option value="银卡">银卡</option><option value="金卡">金卡</option><option value="钻石">钻石</option>
+                            </select>
+                        </div>
+                        <div><label class="block text-sm text-gray-600 mb-1">身高(cm)</label><input name="height" id="edit_height" type="number" step="0.1" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                        <div><label class="block text-sm text-gray-600 mb-1">体重(kg)</label><input name="weight" id="edit_weight" type="number" step="0.1" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                        <div><label class="block text-sm text-gray-600 mb-1">来源</label><input name="source" id="edit_source" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                        <div><label class="block text-sm text-gray-600 mb-1">出生日期</label>
+                            <div class="flex gap-2">
+                                <input name="birth_date" id="edit_birth_date" type="date" class="flex-1 px-3 py-2 border rounded-lg text-sm" onchange="updateEditAge()">
+                                <input id="edit_age" readonly class="w-16 px-3 py-2 border bg-gray-50 rounded-lg text-sm text-gray-500 text-center" placeholder="年龄" title="自动计算">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">跟进员工</label>
+                            <select name="staff_id" id="edit_staff_id" class="w-full px-3 py-2 border rounded-lg text-sm">
+                                <option value="">—— 不指定 ——</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4"><label class="block text-sm text-gray-600 mb-1">备注</label><textarea name="remark" id="edit_remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+                    <div class="flex justify-end gap-2 mt-4">
+                        <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                        <button type="submit" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存修改</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 筛选/排序/分页 JS ========== -->
+<script>
+// 当前排序状态
+var currentSortBy = 'created_at';
+var currentSortDir = 'desc';
+var currentPage = 1;
+
+function sortTable(col) {
+    if (currentSortBy === col) {
+        currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortBy = col;
+        currentSortDir = 'desc';
+    }
+    currentPage = 1;
+    loadTable();
+}
+
+function goPage(p) {
+    currentPage = p;
+    loadTable();
+    document.getElementById('memberTable').scrollIntoView({behavior: 'smooth'});
+}
+
+function doSearch() {
+    currentPage = 1;
+    loadTable();
+}
+
+function resetFilters() {
+    document.getElementById('filterQ').value = '';
+    document.getElementById('filterLevel').value = '';
+    document.getElementById('filterStatus').value = '';
+    document.getElementById('filterSource').value = '';
+    document.getElementById('filterStaff').value = '';
+    document.getElementById('filterRegFrom').value = '';
+    document.getElementById('filterRegTo').value = '';
+    document.getElementById('filterCheckinFrom').value = '';
+    document.getElementById('filterCheckinTo').value = '';
+    currentSortBy = 'created_at';
+    currentSortDir = 'desc';
+    currentPage = 1;
+    loadTable();
+}
+
+function quickDate(period) {
+    var today = new Date();
+    var from = document.getElementById('filterCheckinFrom');
+    var to = document.getElementById('filterCheckinTo');
+    to.value = today.toISOString().split('T')[0];
+    if (period === 'today') {
+        from.value = today.toISOString().split('T')[0];
+    } else if (period === 'week') {
+        var weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 7);
+        from.value = weekAgo.toISOString().split('T')[0];
+    } else if (period === 'month') {
+        var monthAgo = new Date(today);
+        monthAgo.setMonth(today.getMonth() - 1);
+        from.value = monthAgo.toISOString().split('T')[0];
+    } else {
+        from.value = '';
+        to.value = '';
+    }
+    currentPage = 1;
+    loadTable();
+}
+
+function loadTable() {
+    var params = new URLSearchParams();
+    var q = document.getElementById('filterQ').value.trim();
+    var level = document.getElementById('filterLevel').value;
+    var status = document.getElementById('filterStatus').value;
+    var source = document.getElementById('filterSource').value;
+    var staff = document.getElementById('filterStaff').value;
+    var regFrom = document.getElementById('filterRegFrom').value;
+    var regTo = document.getElementById('filterRegTo').value;
+    var checkinFrom = document.getElementById('filterCheckinFrom').value;
+    var checkinTo = document.getElementById('filterCheckinTo').value;
+
+    if (q) params.set('q', q);
+    if (level) params.set('level', level);
+    if (status) params.set('status', status);
+    if (source) params.set('source', source);
+    if (staff) params.set('staff_id', staff);
+    if (regFrom) params.set('reg_from', regFrom);
+    if (regTo) params.set('reg_to', regTo);
+    if (checkinFrom) params.set('checkin_from', checkinFrom);
+    if (checkinTo) params.set('checkin_to', checkinTo);
+    params.set('sort_by', currentSortBy);
+    params.set('sort_dir', currentSortDir);
+    params.set('page', currentPage);
+
+    var url = '/api/members/table?' + params.toString();
+    htmx.ajax('GET', url, {target: '#memberTable', swap: 'innerHTML'});
+}
+
+// 页面加载时填充筛选下拉
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/members/filter-options')
+        .then(function(r) { return r.json(); })
+        .then(function(opts) {
+            var levelSel = document.getElementById('filterLevel');
+            (opts.levels || []).forEach(function(v) {
+                var o = document.createElement('option');
+                o.value = v; o.textContent = v;
+                levelSel.appendChild(o);
+            });
+            var statusSel = document.getElementById('filterStatus');
+            (opts.statuses || []).forEach(function(v) {
+                var o = document.createElement('option');
+                o.value = v; o.textContent = v;
+                statusSel.appendChild(o);
+            });
+            var sourceSel = document.getElementById('filterSource');
+            (opts.sources || []).forEach(function(v) {
+                var o = document.createElement('option');
+                o.value = v; o.textContent = v;
+                sourceSel.appendChild(o);
+            });
+            var staffSel = document.getElementById('filterStaff');
+            (opts.staff || []).forEach(function(s) {
+                var o = document.createElement('option');
+                o.value = s.staff_id; o.textContent = s.name;
+                staffSel.appendChild(o);
+            });
+        });
+});
+
+// 编辑/新增/删除后刷新统计和表格
+function refreshMembersUI() {
+    htmx.ajax('GET', '/api/members/stats', {target: '#memberStats', swap: 'innerHTML'});
+    currentPage = 1;
+    loadTable();
+}
+
+// 监听删除事件 → 刷新统计
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    var el = evt.detail.target;
+    if (el && el.hasAttribute('hx-delete') && el.getAttribute('hx-delete').indexOf('/api/members/') === 0) {
+        if (evt.detail.successful) {
+            htmx.ajax('GET', '/api/members/stats', {target: '#memberStats', swap: 'innerHTML'});
+        }
+    }
+});
+</script>
+
+<!-- 编辑功能 JS -->
+<script>
+let currentEditMemberId = null;
+
+function saveEditMember(event) {
+    event.preventDefault();
+    var memberId = currentEditMemberId || document.getElementById('edit_member_id').value;
+    if (!memberId) {
+        alert('未找到会员信息，请重新打开编辑窗口');
+        return;
+    }
+
+    var form = document.getElementById('editForm');
+    var formData = new FormData(form);
+    var btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+
+    fetch('/api/members/' + memberId, {
+        method: 'PUT',
+        credentials: 'include',
+        body: formData,
+    })
+    .then(function(r) {
+        if (r.ok) return r.json();
+        return r.json().then(function(e) { throw new Error(e.detail || '保存失败'); });
+    })
+    .then(function() {
+        document.getElementById('editModal').classList.add('hidden');
+        refreshMembersUI();
+    })
+    .catch(function(err) {
+        alert('保存失败: ' + err.message);
+    })
+    .finally(function() {
+        btn.disabled = false;
+        btn.textContent = '保存修改';
+    });
+}
+
+function openEditModal(memberId) {
+    currentEditMemberId = memberId;
+    // 从 JSON API 获取会员数据
+    fetch('/api/members/' + memberId)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('edit_name').value = data.name || '';
+            document.getElementById('edit_gender').value = data.gender || '男';
+            document.getElementById('edit_phone').value = data.phone || '';
+            document.getElementById('edit_level').value = data.level || '普通';
+            document.getElementById('edit_height').value = data.height || '';
+            document.getElementById('edit_weight').value = data.weight || '';
+            document.getElementById('edit_source').value = data.source || '';
+            document.getElementById('edit_birth_date').value = data.birth_date || '';
+            updateEditAge();
+            document.getElementById('edit_remark').value = data.remark || '';
+            document.getElementById('edit_member_id').value = memberId;
+
+            // 加载跟进员工列表
+            var staffSelect = document.getElementById('edit_staff_id');
+            staffSelect.innerHTML = '<option value="">—— 不指定 ——</option>';
+            fetch('/api/staff/active')
+                .then(function(r) { return r.json(); })
+                .then(function(staffList) {
+                    staffList.forEach(function(s) {
+                        var opt = document.createElement('option');
+                        opt.value = s.staff_id;
+                        opt.textContent = s.name + (s.position ? ' (' + s.position + ')' : '');
+                        if (s.staff_id === (data.staff_id || '')) opt.selected = true;
+                        staffSelect.appendChild(opt);
+                    });
+                    // 如果选中的员工不在列表中，额外显示
+                    if (data.staff_name && !Array.from(staffSelect.options).some(function(o) { return o.selected && o.value; })) {
+                        var opt2 = document.createElement('option');
+                        opt2.value = data.staff_id || '';
+                        opt2.textContent = data.staff_name + ' (已离职)';
+                        opt2.selected = true;
+                        staffSelect.appendChild(opt2);
+                    }
+                    // 同步 staff_name
+                    updateStaffName();
+                })
+                .catch(function() {
+                    // 加载失败时回退
+                    if (data.staff_name) {
+                        var opt = document.createElement('option');
+                        opt.value = data.staff_id || '';
+                        opt.textContent = data.staff_name;
+                        opt.selected = true;
+                        staffSelect.appendChild(opt);
+                    }
+                    updateStaffName();
+                });
+
+            // 监听跟进员工选择变更
+            staffSelect.onchange = updateStaffName;
+
+            document.getElementById('editModal').classList.remove('hidden');
+
+            // 加载照片
+            loadPhoto(memberId);
+        });
+}
+
+// 打开新增会员对话框
+function openAddMemberModal() {
+    var modal = document.getElementById('addModal');
+    modal.classList.remove('hidden');
+
+    // 加载跟进员工下拉列表
+    var sel = document.getElementById('add_staff_id');
+    if (sel.options.length <= 1) {
+        fetch('/api/staff/active')
+            .then(function(r) { return r.json(); })
+            .then(function(staffList) {
+                sel.innerHTML = '<option value="">—— 不指定 ——</option>';
+                staffList.forEach(function(s) {
+                    var opt = document.createElement('option');
+                    opt.value = s.staff_id;
+                    opt.textContent = s.name + (s.position ? ' (' + s.position + ')' : '');
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(function() { /* ignore */ });
+    }
+
+    // 监听变更 → 同步 staff_name
+    sel.onchange = function() {
+        var nameInput = document.getElementById('add_staff_name');
+        var selectedOpt = sel.options[sel.selectedIndex];
+        nameInput.value = selectedOpt && selectedOpt.value ? selectedOpt.textContent.split(' (')[0] : '';
+    };
+}
+
+// 跟进员工选择 → 同步 staff_name
+function updateStaffName() {
+    var sel = document.getElementById('edit_staff_id');
+    var nameInput = document.getElementById('edit_staff_name');
+    if (sel && nameInput) {
+        var selectedOpt = sel.options[sel.selectedIndex];
+        nameInput.value = selectedOpt && selectedOpt.value ? selectedOpt.textContent.split(' (')[0] : '';
+    }
+}
+
+// 年龄计算
+function calcAge(birthDateValue) {
+    if (!birthDateValue) return '';
+    var parts = birthDateValue.split('-');
+    if (parts.length !== 3) return '';
+    var bd = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    var today = new Date();
+    var age = today.getFullYear() - bd.getFullYear();
+    var m = today.getMonth() - bd.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+    return age >= 0 ? age + '岁' : '';
+}
+
+function updateEditAge() {
+    document.getElementById('edit_age').value = calcAge(document.getElementById('edit_birth_date').value);
+}
+
+function updateAddAge() {
+    document.getElementById('add_age').value = calcAge(document.getElementById('add_birth_date').value);
+}
+
+// ════════════════════════════════════════════
+// 照片功能
+// ════════════════════════════════════════════
+
+function loadPhoto(memberId) {
+    fetch('/api/members/' + memberId + '/photo')
+        .then(r => {
+            if (r.ok) return r.blob();
+            throw new Error('no photo');
+        })
+        .then(blob => {
+            const url = URL.createObjectURL(blob);
+            const img = document.getElementById('photoPreview');
+            img.src = url;
+            img.classList.remove('hidden');
+            document.getElementById('photoPlaceholder').classList.add('hidden');
+            document.getElementById('deletePhotoBtn').classList.remove('hidden');
+        })
+        .catch(() => {
+            // 无照片，显示占位
+            document.getElementById('photoPreview').src = '';
+            document.getElementById('photoPreview').classList.add('hidden');
+            document.getElementById('photoPlaceholder').classList.remove('hidden');
+            document.getElementById('deletePhotoBtn').classList.add('hidden');
+        });
+}
+
+function uploadPhoto(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    // 验证文件大小 (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('照片不能超过 5MB');
+        input.value = '';
+        return;
+    }
+
+    // 验证文件类型
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+        alert('仅支持 JPEG/PNG/WebP 格式');
+        input.value = '';
+        return;
+    }
+
+    const progress = document.getElementById('uploadProgress');
+    progress.classList.remove('hidden');
+    progress.textContent = '⏳ 上传中...';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/api/members/' + currentEditMemberId + '/photo', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(r => r.ok ? r.json() : r.json().then(j => { throw new Error(j.detail || '上传失败'); }))
+    .then(res => {
+        if (res.success) {
+            progress.textContent = '✅ 上传成功';
+            // 刷新照片显示
+            loadPhoto(currentEditMemberId);
+            setTimeout(() => progress.classList.add('hidden'), 2000);
+        }
+    })
+    .catch(err => {
+        progress.textContent = '❌ ' + err.message;
+        setTimeout(() => progress.classList.add('hidden'), 3000);
+    });
+
+    input.value = '';
+}
+
+function deletePhoto() {
+    if (!confirm('确认删除此会员的照片？')) return;
+
+    const progress = document.getElementById('uploadProgress');
+    progress.classList.remove('hidden');
+    progress.textContent = '⏳ 删除中...';
+
+    fetch('/api/members/' + currentEditMemberId + '/photo', {
+        method: 'DELETE',
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            progress.textContent = '✅ 已删除';
+            // 刷新照片显示
+            document.getElementById('photoPreview').src = '';
+            document.getElementById('photoPreview').classList.add('hidden');
+            document.getElementById('photoPlaceholder').classList.remove('hidden');
+            document.getElementById('deletePhotoBtn').classList.add('hidden');
+            setTimeout(() => progress.classList.add('hidden'), 2000);
+        }
+    });
+}
+
+// ════════════════════════════════════════════
+// 摄像头拍照
+// ════════════════════════════════════════════
+
+var cameraStream = null;
+
+function openCamera() {
+    var modal = document.getElementById('cameraModal');
+    var video = document.getElementById('cameraVideo');
+    var canvas = document.getElementById('cameraCanvas');
+    var captureBtn = document.getElementById('cameraCaptureBtn');
+    var retakeBtn = document.getElementById('cameraRetakeBtn');
+    var statusEl = document.getElementById('cameraStatus');
+
+    // 重置状态
+    canvas.classList.add('hidden');
+    captureBtn.classList.remove('hidden');
+    retakeBtn.classList.add('hidden');
+    statusEl.classList.add('hidden');
+    statusEl.className = 'text-sm text-center hidden mb-3';
+    video.style.display = 'block';
+
+    modal.classList.remove('hidden');
+
+    // 启动摄像头
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'environment'
+        },
+        audio: false
+    })
+    .then(function(stream) {
+        cameraStream = stream;
+        video.srcObject = stream;
+    })
+    .catch(function(err) {
+        statusEl.classList.remove('hidden');
+        statusEl.className = 'text-sm text-center text-red-500 mb-3';
+        if (err.name === 'NotAllowedError') {
+            statusEl.textContent = '❌ 摄像头权限被拒绝，请在浏览器设置中允许摄像头访问';
+        } else if (err.name === 'NotFoundError') {
+            statusEl.textContent = '❌ 未检测到摄像头设备';
+        } else {
+            statusEl.textContent = '❌ 摄像头启动失败: ' + err.message;
+        }
+    });
+}
+
+function capturePhoto() {
+    var video = document.getElementById('cameraVideo');
+    var canvas = document.getElementById('cameraCanvas');
+    var captureBtn = document.getElementById('cameraCaptureBtn');
+    var retakeBtn = document.getElementById('cameraRetakeBtn');
+    var statusEl = document.getElementById('cameraStatus');
+
+    // canvas 匹配视频尺寸
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    // 截取当前帧
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // 显示拍照结果，隐藏视频
+    canvas.classList.remove('hidden');
+    video.style.display = 'none';
+    captureBtn.classList.add('hidden');
+    retakeBtn.classList.remove('hidden');
+
+    // 自动上传
+    statusEl.classList.remove('hidden');
+    statusEl.className = 'text-sm text-center text-blue-500 mb-3';
+    statusEl.textContent = '⏳ 上传中...';
+
+    canvas.toBlob(function(blob) {
+        var formData = new FormData();
+        formData.append('file', blob, currentEditMemberId + '.jpg');
+
+        fetch('/api/members/' + currentEditMemberId + '/photo', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(function(r) {
+            return r.ok ? r.json() : r.json().then(function(j) { throw new Error(j.detail || '上传失败'); });
+        })
+        .then(function(res) {
+            if (res.success) {
+                statusEl.className = 'text-sm text-center text-green-600 mb-3';
+                statusEl.textContent = '✅ 拍照上传成功！';
+                // 刷新编辑弹窗的照片
+                loadPhoto(currentEditMemberId);
+                // 2秒后自动关闭
+                setTimeout(function() {
+                    closeCamera();
+                }, 2000);
+            }
+        })
+        .catch(function(err) {
+            statusEl.className = 'text-sm text-center text-red-500 mb-3';
+            statusEl.textContent = '❌ 上传失败: ' + err.message;
+        });
+    }, 'image/jpeg', 0.9);
+}
+
+function retakePhoto() {
+    var video = document.getElementById('cameraVideo');
+    var canvas = document.getElementById('cameraCanvas');
+    var captureBtn = document.getElementById('cameraCaptureBtn');
+    var retakeBtn = document.getElementById('cameraRetakeBtn');
+    var statusEl = document.getElementById('cameraStatus');
+
+    canvas.classList.add('hidden');
+    video.style.display = 'block';
+    captureBtn.classList.remove('hidden');
+    retakeBtn.classList.add('hidden');
+    statusEl.classList.add('hidden');
+    statusEl.className = 'text-sm text-center hidden mb-3';
+}
+
+function closeCamera() {
+    // 停止摄像头
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(function(t) { t.stop(); });
+        cameraStream = null;
+    }
+
+    var video = document.getElementById('cameraVideo');
+    video.srcObject = null;
+    video.style.display = 'block';
+
+    document.getElementById('cameraModal').classList.add('hidden');
+}
+</script>
+
+<!-- ═══ 摄像头拍照弹窗 ═══ -->
+<div id="cameraModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">📸 拍照</h3>
+            <button onclick="closeCamera()"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+
+        <!-- 视频预览 -->
+        <div id="cameraPreviewWrap" class="bg-black rounded-lg overflow-hidden mb-4">
+            <video id="cameraVideo" autoplay playsinline
+                   class="w-full h-72 object-cover"></video>
+        </div>
+
+        <!-- 拍照预览（拍照后替换视频） -->
+        <canvas id="cameraCanvas" class="hidden w-full h-72 object-cover rounded-lg mb-4 bg-black"></canvas>
+
+        <!-- 状态提示 -->
+        <div id="cameraStatus" class="text-sm text-center hidden mb-3"></div>
+
+        <!-- 按钮 -->
+        <div class="flex justify-center gap-3">
+            <button id="cameraCaptureBtn" type="button" onclick="capturePhoto()"
+                    class="px-6 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                📸 拍照
+            </button>
+            <button id="cameraRetakeBtn" type="button" onclick="retakePhoto()"
+                    class="hidden px-6 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">
+                🔄 重拍
+            </button>
+            <button type="button" onclick="closeCamera()"
+                    class="px-6 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">
+                ✕ 关闭
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 售卡对话框（选择卡产品） -->
+<div id="sellCardModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">🪪 售卡</h3>
+            <button onclick="document.getElementById('sellCardModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form id="sellCardForm" onsubmit="return false;">
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">会员编号</label>
+                        <input id="sellCardMemberId" readonly class="w-full px-3 py-2 border bg-gray-50 rounded-lg text-sm text-gray-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">会员姓名</label>
+                        <input id="sellCardMemberName" readonly class="w-full px-3 py-2 border bg-gray-50 rounded-lg text-sm text-gray-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">选择会籍卡产品 *</label>
+                    <select id="sellCardProduct" onchange="onSellCardProductChange()" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">— 请选择 —</option>
+                    </select>
+                </div>
+                <div id="sellCardProductInfo" class="hidden bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                    <div>类型：<span id="sellCardTypeDisplay"></span></div>
+                    <div id="sellCardClassesDisplay"></div>
+                    <div>有效期：<span id="sellCardDurationDisplay"></span></div>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">售价（元）</label>
+                    <input id="sellCardPrice" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">开始日期</label>
+                    <input id="sellCardStart" type="date" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+            </div>
+            <div id="sellCardResult" class="hidden text-sm text-center py-2 rounded-lg mt-3"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="document.getElementById('sellCardModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="button" onclick="submitSellCard()" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">💳 确认售卡</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// ── 卡产品缓存 ──
+var cardProducts = [];
+
+function openSellCardModal(memberId, memberName) {
+    document.getElementById('sellCardMemberId').value = memberId;
+    document.getElementById('sellCardMemberName').value = memberName;
+    document.getElementById('sellCardPrice').value = '0';
+    document.getElementById('sellCardStart').value = '';
+    document.getElementById('sellCardResult').classList.add('hidden');
+    document.getElementById('sellCardProductInfo').classList.add('hidden');
+
+    // 加载卡产品列表
+    var sel = document.getElementById('sellCardProduct');
+    sel.innerHTML = '<option value="">加载中...</option>';
+    sel.disabled = true;
+    fetch('/api/membership-cards/products/list')
+        .then(function(r) { return r.json(); })
+        .then(function(prods) {
+            cardProducts = prods;
+            sel.innerHTML = '<option value="">— 请选择 —</option>';
+            prods.forEach(function(p) {
+                var label = p.name || p.card_id;
+                sel.innerHTML += '<option value="' + p.card_id + '">' + label + ' (' + p.card_type + ' ¥' + p.price + ')</option>';
+            });
+            sel.disabled = false;
+        });
+    document.getElementById('sellCardModal').classList.remove('hidden');
+}
+
+function onSellCardProductChange() {
+    var pid = document.getElementById('sellCardProduct').value;
+    var infoEl = document.getElementById('sellCardProductInfo');
+    var priceEl = document.getElementById('sellCardPrice');
+    if (!pid) { infoEl.classList.add('hidden'); return; }
+
+    var p = cardProducts.find(function(x) { return x.card_id === pid; });
+    if (!p) { infoEl.classList.add('hidden'); return; }
+
+    document.getElementById('sellCardTypeDisplay').textContent = p.card_type;
+    document.getElementById('sellCardDurationDisplay').textContent = p.duration_days > 0 ? p.duration_days + '天' : '无期限';
+    if (p.card_type === '次卡') {
+        document.getElementById('sellCardClassesDisplay').innerHTML = '次数：' + p.total_classes + '次';
+    } else {
+        document.getElementById('sellCardClassesDisplay').innerHTML = '';
+    }
+
+    // 自动填入售价（可改）
+    priceEl.value = p.price;
+
+    infoEl.classList.remove('hidden');
+}
+
+function submitSellCard() {
+    var pid = document.getElementById('sellCardProduct').value;
+    if (!pid) { alert('请选择卡产品'); return; }
+
+    var btn = document.querySelector('#sellCardModal .bg-green-600');
+    var resultEl = document.getElementById('sellCardResult');
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+    resultEl.classList.add('hidden');
+
+    var params = new URLSearchParams();
+    params.set('member_id', document.getElementById('sellCardMemberId').value);
+    params.set('member_name', document.getElementById('sellCardMemberName').value);
+    params.set('product_id', pid);
+    params.set('price', document.getElementById('sellCardPrice').value || '0');
+    params.set('start_date', document.getElementById('sellCardStart').value || '');
+
+    fetch('/api/membership-cards/sell', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+    })
+    .then(function(r) {
+        if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || '售卡失败'); });
+        return r.json();
+    })
+    .then(function() {
+        resultEl.classList.remove('hidden');
+        resultEl.className = 'text-sm text-center py-2 rounded-lg bg-green-50 text-green-700';
+        resultEl.textContent = '✅ ' + document.getElementById('sellCardMemberName').value + ' 售卡成功！';
+        // 修复：恢复按钮状态 + 改用 htmx.ajax 刷新
+        btn.disabled = false;
+        btn.textContent = '💳 确认售卡';
+        refreshMembersUI();
+        setTimeout(function() {
+            document.getElementById('sellCardModal').classList.add('hidden');
+        }, 1500);
+    })
+    .catch(function(e) {
+        resultEl.classList.remove('hidden');
+        resultEl.className = 'text-sm text-center py-2 rounded-lg bg-red-50 text-red-700';
+        resultEl.textContent = '❌ ' + e.message;
+        btn.disabled = false;
+        btn.textContent = '💳 确认售卡';
+    });
+}
+</script>
+{% endblock %}

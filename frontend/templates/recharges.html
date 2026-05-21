@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold text-gray-800">会员充值</h2>
+    <button onclick="document.getElementById('addModal').classList.remove('hidden')"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+        + 新增充值
+    </button>
+</div>
+
+<div id="rechargeTable" hx-get="/api/recharges/table" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
+<!-- 新增充值对话框 -->
+<div id="addModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">新增充值</h3>
+            <button onclick="document.getElementById('addModal').classList.add('hidden')"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form hx-post="/api/recharges" hx-target="#rechargeTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addModal').classList.add('hidden'); this.reset();}">
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-sm text-gray-600 mb-1">会员编号 *</label><input name="member_id" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">会员姓名 *</label><input name="member_name" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">充值日期</label><input name="recharge_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">充值金额</label><input name="amount" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">赠送金额</label><input name="bonus" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">实付金额</label><input name="actual_amount" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">支付方式</label>
+                    <select name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">请选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="刷卡">刷卡</option><option value="转账">转账</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm text-gray-600 mb-1">充值类型</label>
+                    <select name="recharge_type" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="普通充值">普通充值</option><option value="活动充值">活动充值</option><option value="首次充值">首次充值</option><option value="续费">续费</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm text-gray-600 mb-1">经办员工</label><input name="operator_id" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+            </div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">备注</label><textarea name="remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

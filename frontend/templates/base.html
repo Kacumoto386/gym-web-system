@@ -1,0 +1,207 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - 健身房管理系统</title>
+    <script src="/static/tailwind.min.js"></script>
+    <script src="/static/htmx.min.js"></script>
+    <style>
+        /* 侧边栏滚动条 */
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+    <!-- 左侧边栏 -->
+    <aside class="sidebar fixed top-0 left-0 w-56 h-screen bg-blue-700 text-white flex flex-col overflow-y-auto z-50 shadow-xl">
+        <!-- Logo / 标题 -->
+        <div class="px-4 py-4 border-b border-blue-600">
+            <h1 id="sidebarTitle" class="text-base font-bold tracking-wide">🏋️ {{ _get_system_name() }}</h1>
+            <span class="text-blue-300 text-xs">v3.3.5</span>
+        </div>
+
+        <!-- 导航菜单 -->
+        <nav class="flex-1 px-2 py-3 space-y-0.5">
+            <!-- 首页 -->
+            <a href="/" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if request.url.path == '/' %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">🏠</span> 首页
+            </a>
+
+            <!-- 会员管理 -->
+            <a href="/members" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/members' in request.url.path and '/member-assets' not in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">👥</span> 会员管理
+            </a>
+
+            <!-- 资产残值 -->
+            <a href="/member-assets" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/member-assets' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">💰</span> 资产残值
+            </a>
+
+            <!-- 员工管理 -->
+            <a href="/staff" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/staff' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">👤</span> 员工管理
+            </a>
+
+            <!-- 课程管理 -->
+            <a href="/courses" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/courses' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📚</span> 课程管理
+            </a>
+
+            <!-- 进场核销 -->
+            <a href="/checkin" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/checkin' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">✅</span> 进场核销
+            </a>
+
+            <!-- 教练排班 -->
+            <a href="/booking" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/booking' in request.url.path %}bg-blue-600/80 font-medium{% endif %}>
+            <span>📋</span> 预约管理
+        </a>
+        <a href="/schedule" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/schedule' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📅</span> 教练排班
+            </a>
+
+            <!-- 售课记录 -->
+            <a href="/sales" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/sales' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">💳</span> 售课记录
+            </a>
+
+            <!-- 上课记录 -->
+            <a href="/class-records" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/class-records' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📝</span> 上课记录
+            </a>
+
+            <!-- 手环管理 -->
+            <a href="/wristband" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/wristband' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">🏷️</span> 手环管理
+            </a>
+
+            <!-- 分隔线 -->
+            <div class="pt-2 pb-1">
+                <div class="border-t border-blue-600/50"></div>
+            </div>
+
+            <!-- 数据分析（可展开分组） -->
+            <div class="space-y-0.5">
+                <div class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-blue-200 font-medium">
+                    <span class="text-base">📊</span> 数据分析
+                </div>
+                <div class="ml-3 space-y-0.5">
+                    <a href="/performance" class="block pl-3 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/performance' in request.url.path and request.url.path == '/performance' %}bg-blue-600/80 font-medium{% endif %}">业绩总览</a>
+                    <a href="/performance/sales" class="block pl-3 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/performance/sales' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">售课业绩</a>
+                    <a href="/performance/packages" class="block pl-3 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/performance/packages' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">课程包业绩</a>
+                    <a href="/performance/cards" class="block pl-3 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/performance/cards' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">会籍卡业绩</a>
+                    <a href="/performance/checkins" class="block pl-3 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/performance/checkins' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">进场统计</a>
+                </div>
+            </div>
+
+            <!-- 体测记录 -->
+            <a href="/body-measurements" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/body-measurements' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📏</span> 体测记录
+            </a>
+
+            <!-- 会员充值 -->
+            <a href="/recharges" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/recharges' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">💰</span> 会员充值
+            </a>
+
+            <!-- 会籍卡 -->
+            <a href="/membership-cards" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/membership-cards' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">🎫</span> 会籍卡
+            </a>
+
+            <!-- 分隔线 -->
+            <div class="pt-2 pb-1">
+                <div class="border-t border-blue-600/50"></div>
+            </div>
+
+            <!-- 商品零售 -->
+            <a href="/products" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/products' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">🛒</span> 商品零售
+            </a>
+
+            <!-- 课程包管理 -->
+            <a href="/packages?v=4" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/packages' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📦</span> 课程包管理
+            </a>
+
+            <!-- 梯度提成 -->
+            <a href="/commission" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/commission' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📊</span> 梯度提成
+            </a>
+
+            <!-- 收支报表 -->
+            <a href="/finance" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/finance' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📊</span> 收支报表
+            </a>
+
+            <!-- 到期提醒 -->
+            <a href="/alerts" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/alerts' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">⏰</span> 到期提醒
+            </a>
+
+            <!-- 操作日志 -->
+            <a href="/logs" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/logs' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📋</span> 操作日志
+            </a>
+
+            <!-- 数据导出 -->
+            <a href="/export" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/export' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">📥</span> 数据导出
+            </a>
+
+            <!-- 分隔线 -->
+            <div class="pt-2 pb-1">
+                <div class="border-t border-blue-600/50"></div>
+            </div>
+
+            <!-- AI 助手 -->
+            <a href="/chat" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/chat' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">🤖</span> AI 助手
+            </a>
+
+            <!-- MCP 工具管理 -->
+            <a href="/mcp-tools" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150 hover:bg-blue-600 {% if '/mcp-tools' in request.url.path %}bg-blue-600/80 font-medium{% endif %}">
+                <span class="text-base">🧩</span> MCP 工具
+            </a>
+        </nav>
+
+        <!-- 底部版本信息 -->
+        <div class="px-4 py-3 border-t border-blue-600 text-blue-300 text-xs">
+            v3.5.3 © 健身管理系统
+        </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="ml-56 flex-1 min-h-screen">
+        <div class="px-6 py-5">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- 系统名称动态加载 -->
+    <script>
+        // 页面加载时读取系统名称，更新侧边栏标题
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/system/settings')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.system_name) {
+                        document.getElementById('sidebarTitle').innerHTML = '🏋️ ' + data.system_name;
+                    }
+                })
+                .catch(() => {});
+        });
+    </script>
+
+    <!-- HTMX 配置 -->
+    <script>
+        document.body.addEventListener('htmx:beforeSwap', function(evt) {
+            if (evt.detail.xhr.status >= 400) {
+                evt.detail.shouldSwap = false;
+            }
+        });
+    </script>
+</body>
+</html>
