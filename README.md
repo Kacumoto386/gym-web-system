@@ -1,6 +1,6 @@
-# 🧀 鼠小弟健身管理系统 V3.0.0（网页版）
+# 🧀 鼠小弟健身管理系统 V3.5.4（网页版）
 
-从原有桌面版（v2.16.x）迁移而来的 Web 版本。
+从原有桌面版（v2.16.x）迁移而来的 Web 版本，持续迭代至 V3.5.4。
 
 ## 架构
 
@@ -25,9 +25,14 @@ gym-web-system/
 # 安装依赖
 pip install -r requirements.txt
 
-# 启动后端
+# 启动后端（两种方式任选）
+cd backend && uvicorn app:app --reload
+# 或
 uvicorn backend.app:app --reload
 
 # 浏览器访问
 http://localhost:8000
+
+# 运行测试
+python test_stability.py
 ```
