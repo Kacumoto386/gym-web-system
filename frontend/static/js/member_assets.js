@@ -1,0 +1,208 @@
+// ── 搜索 ──
+function searchAssets(keyword) {
+    var showAll = document.getElementById('showAllToggle').checked;
+    var q = keyword || document.getElementById('searchInput').value;
+    var url = '/api/asset-values/table?q=' + encodeURIComponent(q) + '&showAll=' + (showAll ? '1' : '0');
+    htmx.ajax('GET', url, {target: '#assetContent', swap: 'innerHTML'});
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.activeElement === document.getElementById('searchInput')) {
+        searchAssets();
+    }
+});
+
+// ── 状态标签 ──
+function daysTag(days) {
+    if (days === undefined || days === null) return '';
+    if (days < 0) return '<span class="text-red-500 font-medium">已过期 ' + Math.abs(days) + ' 天</span>';
+    if (days === 0) return '<span class="text-orange-500 font-medium">今日到期</span>';
+    if (days <= 7) return '<span class="text-orange-500 font-medium">' + days + ' 天</span>';
+    return '<span class="text-gray-500">' + days + ' 天</span>';
+}
+
+function statusBadge(days) {
+    if (days === undefined || days === null) return '<span class="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded">无期限</span>';
+    if (days < 0) return '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">已过期</span>';
+    if (days <= 7) return '<span class="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded">即将到期</span>';
+    if (days <= 30) return '<span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">30天内到期</span>';
+    return '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">有效</span>';
+}
+
+function progressBar(val, total, color) {
+    if (!total || total <= 0) return '<div class="w-full bg-gray-200 rounded-full h-1.5"></div>';
+    var pct = Math.min(val / total * 100, 100);
+    var c = color || 'blue';
+    var colors = {blue: 'bg-blue-500', green: 'bg-green-500', orange: 'bg-orange-500', red: 'bg-red-500'};
+    var barColor = colors[c] || colors.blue;
+    return '<div class="w-full bg-gray-200 rounded-full h-1.5"><div class="' + barColor + ' rounded-full h-1.5" style="width: ' + pct.toFixed(1) + '%"></div></div>';
+}
+
+// ── 显示明细弹窗 ──
+function showMemberDetail(memberId) {
+    var modal = document.getElementById('detailModal');
+    var body = document.getElementById('detailBody');
+    var title = document.getElementById('detailTitle');
+    var subtitle = document.getElementById('detailSubtitle');
+    var summary = document.getElementById('detailSummary');
+
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    body.innerHTML = '<div class="text-center py-8 text-gray-400">加载中...</div>';
+    summary.classList.add('hidden');
+
+    fetch('/api/asset-values/member/' + memberId + '/detail')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            title.textContent = data.member_name || '(无名)';
+            subtitle.textContent = '会员 ' + memberId + ' · ' + (data.phone || '');
+
+            document.getElementById('detailCardVal').textContent = '¥' + (data.card_residual || 0).toFixed(2);
+            document.getElementById('detailLessonVal').textContent = '¥' + (data.lesson_residual || 0).toFixed(2);
+            document.getElementById('detailPkgVal').textContent = '¥' + (data.package_residual || 0).toFixed(2);
+            document.getElementById('detailTotalVal').textContent = '¥' + (data.total || 0).toFixed(2);
+
+            var html = '';
+
+            // ── 会籍卡 ──
+            if (data.card_detail && data.card_detail.length > 0) {
+                html += '<div class="mb-5">';
+                html += '<h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5"><span class="inline-block w-3 h-3 bg-green-500 rounded-full"></span>会籍卡 <span class="text-gray-400 font-normal">(' + data.card_detail.length + '张)</span></h4>';
+                data.card_detail.forEach(function(c) {
+                    var days = c.remaining_days;
+                    var borderColor = days < 0 ? 'border-red-400' : days <= 7 ? 'border-orange-400' : 'border-green-400';
+                    html += '<div class="bg-gray-50 rounded-lg p-3.5 mb-2 border-l-4 ' + borderColor + '">';
+                    // 第一行：卡名称 + 残值 + 状态
+                    html += '<div class="flex items-center justify-between mb-1.5">';
+                    html += '<div><span class="text-sm font-medium text-gray-700">' + (c.card_name || c.card_type || '会籍卡') +
+                        ' <span class="text-gray-400 text-xs ml-1">' + c.card_id + '</span></span>';
+                    html += ' ' + statusBadge(days) + '</div>';
+                    html += '<span class="text-sm font-bold text-green-700">¥' + c.residual.toFixed(2) + '</span>';
+                    html += '</div>';
+                    // 第二行：类型 + 到期 + 剩余
+                    html += '<div class="flex items-center justify-between text-xs">';
+                    html += '<div class="text-gray-500">';
+                    html += c.card_type || '';
+                    if (c.end_date) html += ' · 到期 ' + c.end_date + ' ' + daysTag(days);
+                    html += '</div>';
+                    html += '<div class="text-gray-500">';
+                    if (c.remaining_desc) {
+                        html += c.remaining_desc;
+                    } else {
+                        html += '售价 ¥' + c.price.toFixed(2);
+                        if (c.consumed > 0) html += ' · 已用 ¥' + c.consumed.toFixed(2);
+                    }
+                    html += '</div>';
+                    html += '</div>';
+                    // 进度条：价格消费进度
+                    if (c.price > 0 && c.consumed > 0) {
+                        var pct = Math.min(c.consumed / c.price * 100, 100);
+                        html += '<div class="mt-1.5 text-xs text-gray-400">已用 ¥' + c.consumed.toFixed(2) + '/' + '¥' + c.price.toFixed(2) +
+                            ' · <span class="text-green-600">余 ¥' + (c.price - c.consumed).toFixed(2) + '</span></div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            // ── 私教课 ──
+            if (data.lesson_detail && data.lesson_detail.length > 0) {
+                html += '<div class="mb-5">';
+                html += '<h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5"><span class="inline-block w-3 h-3 bg-blue-500 rounded-full"></span>私教课 <span class="text-gray-400 font-normal">(' + data.lesson_detail.length + '项)</span></h4>';
+                data.lesson_detail.forEach(function(l) {
+                    var days = l.remaining_days;
+                    var borderColor = days < 0 ? 'border-red-400' : days <= 7 ? 'border-orange-400' : 'border-blue-400';
+                    html += '<div class="bg-gray-50 rounded-lg p-3.5 mb-2 border-l-4 ' + borderColor + '">';
+                    // 第一行：课程名 + 残值
+                    html += '<div class="flex items-center justify-between mb-1.5">';
+                    html += '<div><span class="text-sm font-medium text-gray-700">' + (l.course_name || '私教课') +
+                        ' <span class="text-gray-400 text-xs ml-1">' + l.package_id + '</span></span>';
+                    html += ' ' + statusBadge(days) + '</div>';
+                    html += '<span class="text-sm font-bold text-blue-700">¥' + l.residual.toFixed(2) + '</span>';
+                    html += '</div>';
+                    // 第二行：消耗 + 到期
+                    html += '<div class="flex items-center justify-between text-xs">';
+                    html += '<div class="text-gray-500">已上 ' + l.used_hours + ' / 共 ' + l.total_hours + ' 节 · ';
+                    html += '<span class="text-blue-600 font-medium">剩余 ' + l.remaining_hours + ' 节</span></div>';
+                    html += '<div class="text-gray-500">到期 ' + l.valid_until + ' · ' + daysTag(days);
+                    if (l.unit_price > 0) html += ' · 单价 ¥' + l.unit_price.toFixed(2);
+                    html += '</div>';
+                    html += '</div>';
+                    // 课时进度条
+                    if (l.total_hours > 0) {
+                        var usedPct = l.used_hours / l.total_hours * 100;
+                        var barColor = usedPct > 75 ? 'red' : usedPct > 50 ? 'orange' : 'blue';
+                        html += '<div class="mt-1.5 flex items-center gap-2">';
+                        html += '<div class="flex-1">' + progressBar(l.used_hours, l.total_hours, barColor) + '</div>';
+                        html += '<span class="text-xs text-gray-400">' + usedPct.toFixed(0) + '%</span>';
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            // ── 课程包/包月 ──
+            if (data.package_detail && data.package_detail.length > 0) {
+                html += '<div class="mb-4">';
+                html += '<h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5"><span class="inline-block w-3 h-3 bg-purple-500 rounded-full"></span>课程包 / 包月 <span class="text-gray-400 font-normal">(' + data.package_detail.length + '项)</span></h4>';
+                data.package_detail.forEach(function(p) {
+                    var days = p.remaining_days;
+                    var isMonthlyPass = p.package_id && p.package_id.indexOf('MP') === 0;
+                    var borderColor = days < 0 ? 'border-red-400' : days <= 7 ? 'border-orange-400' : 'border-purple-400';
+                    html += '<div class="bg-gray-50 rounded-lg p-3.5 mb-2 border-l-4 ' + borderColor + '">';
+                    // 第一行
+                    html += '<div class="flex items-center justify-between mb-1.5">';
+                    html += '<div><span class="text-sm font-medium text-gray-700">' + (p.course_name || '课程包') +
+                        ' <span class="text-gray-400 text-xs ml-1">' + p.package_id + '</span></span>';
+                    html += ' ' + statusBadge(days) + '</div>';
+                    html += '<span class="text-sm font-bold text-purple-700">¥' + p.residual.toFixed(2) + '</span>';
+                    html += '</div>';
+                    // 第二行
+                    html += '<div class="flex items-center justify-between text-xs">';
+                    html += '<div class="text-gray-500">';
+                    if (isMonthlyPass) {
+                        html += '包月 · 剩余 <span class="text-purple-600 font-medium">' + p.remaining_hours + ' 天</span>';
+                    } else if (p.total_hours > 0) {
+                        html += '已用 ' + p.used_hours + ' / 共 ' + p.total_hours + ' 节 · ';
+                        html += '<span class="text-purple-600 font-medium">剩余 ' + p.remaining_hours + ' 节</span>';
+                    } else {
+                        html += '剩余 ' + p.remaining_hours + (p.remaining_hours > 30 ? ' 天' : ' 次');
+                    }
+                    html += '</div>';
+                    html += '<div class="text-gray-500">到期 ' + p.valid_until + ' · ' + daysTag(days);
+                    if (p.unit_price > 0) html += ' · ¥' + p.unit_price.toFixed(2) + '/天';
+                    html += '</div>';
+                    html += '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+
+            if (!html) {
+                html = '<div class="text-center py-8 text-gray-400">该会员暂无资产数据</div>';
+            }
+
+            summary.classList.remove('hidden');
+            body.innerHTML = html;
+        })
+        .catch(function(err) {
+            body.innerHTML = '<div class="text-center py-8 text-red-500">加载失败: ' + err.message + '</div>';
+        });
+}
+
+function closeDetailModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+    document.getElementById('detailModal').style.display = '';
+}
+
+function exportCsv() {
+    var showAll = document.getElementById('showAllToggle').checked ? '1' : '0';
+    var q = encodeURIComponent(document.getElementById('searchInput').value);
+    window.open('/api/asset-values/export?q=' + q + '&showAll=' + showAll, '_blank');
+}
+
+// 点击弹窗外部关闭
+document.getElementById('detailModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetailModal();
+});
