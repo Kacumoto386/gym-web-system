@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.6.7 — 收入支出报表保存修复
+V3.6.9 — 到期提醒模块实时数据增强
 """
 import os
 import sys
@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.6.6 — ConversationRuntime AI 对话",
-    version="3.6.6",
+    description="Web 版健身管理系统 V3.6.9 — ConversationRuntime AI 对话",
+    version="3.6.9",
 )
 
 # 模板
@@ -620,7 +620,7 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.6.6", "system_name": name}
+    return {"status": "ok", "version": "3.6.9", "system_name": name}
 
 
 # 路由注册

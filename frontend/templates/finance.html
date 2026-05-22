@@ -13,10 +13,24 @@
 <!-- 月份筛选 -->
 <div class="mb-4 flex gap-2">
     <input type="number" id="yearFilter" value="{{ today.year }}" class="w-20 px-3 py-2 border rounded-lg text-sm" placeholder="年"
-           onchange="refreshFinance()">
+           onchange="loadFinanceTable()">
     <input type="number" id="monthFilter" value="{{ today.month }}" class="w-16 px-3 py-2 border rounded-lg text-sm" placeholder="月" min="1" max="12"
-           onchange="refreshFinance()">
-    <button onclick="refreshFinance()" class="px-3 py-2 text-sm bg-gray-100 border rounded-lg hover:bg-gray-200">查询</button>
+           onchange="loadFinanceTable()">
+    <button onclick="loadFinanceTable()" class="px-3 py-2 text-sm bg-gray-100 border rounded-lg hover:bg-gray-200">查询</button>
+</div>
+
+<!-- 筛选栏 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-3 mb-3">
+    <div class="flex flex-wrap items-center gap-2">
+        <input type="text" id="filterQ" placeholder="搜索备注/来源/收款方..."
+               class="w-52 px-3 py-1.5 border rounded-lg text-sm"
+               onkeydown="if(event.key==='Enter')doSearch()">
+        <select id="filterCategory" class="px-2 py-1.5 border rounded-lg text-sm bg-white">
+            <option value="">全部分类</option>
+        </select>
+        <button onclick="doSearch()" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">查询</button>
+        <button onclick="resetFilters()" class="px-3 py-1.5 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">重置</button>
+    </div>
 </div>
 
 <!-- 汇总卡片 -->
@@ -24,10 +38,12 @@
     <div class="text-center py-4 text-gray-400">加载统计...</div>
 </div>
 
-<!-- Tab 切换 -->
+<!-- Tab 切换 + 导出 -->
 <div class="flex gap-1 mb-4">
     <button id="tabIncome" onclick="switchFinanceTab('income')" class="px-4 py-2 text-sm rounded-lg bg-green-600 text-white">收入明细</button>
     <button id="tabExpense" onclick="switchFinanceTab('expense')" class="px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300">支出明细</button>
+    <div class="flex-1"></div>
+    <button onclick="exportCSV()" class="px-3 py-2 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200">导出 CSV</button>
 </div>
 
 <div id="incomeSection">
@@ -38,13 +54,88 @@
 </div>
 
 <script>
-function refreshFinance() {
-    const y = document.getElementById('yearFilter').value || {{ today.year }};
-    const m = document.getElementById('monthFilter').value || {{ today.month }};
-    fetch('/api/finance/summary?year='+y+'&month='+m).then(r => r.text()).then(h => { document.getElementById('financeSummary').innerHTML = h; });
-    fetch('/api/finance/income/table?year='+y+'&month='+m).then(r => r.text()).then(h => { document.getElementById('incomeTable').innerHTML = h; });
-    fetch('/api/finance/expense/table?year='+y+'&month='+m).then(r => r.text()).then(h => { document.getElementById('expenseTable').innerHTML = h; });
+var currentTab = 'income';
+var currentPage = 1;
+
+// ── 切换 tab ──
+function switchFinanceTab(tab) {
+    currentTab = tab;
+    currentPage = 1;
+    document.getElementById('incomeSection').classList.toggle('hidden', tab !== 'income');
+    document.getElementById('expenseSection').classList.toggle('hidden', tab !== 'expense');
+    document.getElementById('tabIncome').className = (tab === 'income' ? 'px-4 py-2 text-sm rounded-lg bg-green-600 text-white' : 'px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300');
+    document.getElementById('tabExpense').className = (tab === 'expense' ? 'px-4 py-2 text-sm rounded-lg bg-green-600 text-white' : 'px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300');
+    updateFilterCategories();
+    loadFinanceTable();
 }
+
+// ── 分类下拉动态更新 ──
+var incomeCategories = ['售课收入', '商品零售', '会籍卡', '私教课程', '团课收入', '储物柜租金', '其他'];
+var expenseCategories = ['房租', '物业水电', '工资', '设备', '办公用品', '快递费', '打印费', '通讯费', '差旅费', '招待费', '维修费', '网络费', '保险费', '税费', '其他'];
+
+function updateFilterCategories() {
+    var sel = document.getElementById('filterCategory');
+    var cats = currentTab === 'income' ? incomeCategories : expenseCategories;
+    var currentVal = sel.value;
+    sel.innerHTML = '<option value="">全部分类</option>';
+    cats.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        if (c === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+    });
+}
+updateFilterCategories();
+
+// ── 加载表格（带筛选 + 分页）─ ─
+function loadFinanceTable() {
+    var y = document.getElementById('yearFilter').value || {{ today.year }};
+    var m = document.getElementById('monthFilter').value || {{ today.month }};
+    var q = document.getElementById('filterQ').value;
+    var cat = document.getElementById('filterCategory').value;
+    var url = '/api/finance/' + currentTab + '/table?year=' + y + '&month=' + m + '&page=' + currentPage;
+    if (q) url += '&q=' + encodeURIComponent(q);
+    if (cat) url += '&category=' + encodeURIComponent(cat);
+    fetch(url).then(function(r) { return r.text(); }).then(function(html) {
+        document.getElementById(currentTab === 'income' ? 'incomeTable' : 'expenseTable').innerHTML = html;
+    });
+    // 刷新汇总
+    document.getElementById('financeSummary').setAttribute('hx-get', '/api/finance/summary?year='+y+'&month='+m);
+    htmx.trigger('#financeSummary', 'load');
+}
+
+// ── 分页 ──
+function goPage(p) {
+    currentPage = p;
+    loadFinanceTable();
+}
+
+// ── 筛选 ──
+function doSearch() {
+    currentPage = 1;
+    loadFinanceTable();
+}
+function resetFilters() {
+    document.getElementById('filterQ').value = '';
+    document.getElementById('filterCategory').value = '';
+    currentPage = 1;
+    loadFinanceTable();
+}
+
+// ── CSV 导出 ──
+function exportCSV() {
+    var y = document.getElementById('yearFilter').value || {{ today.year }};
+    var m = document.getElementById('monthFilter').value || {{ today.month }};
+    var q = document.getElementById('filterQ').value;
+    var cat = document.getElementById('filterCategory').value;
+    var url = '/api/finance/export?type=' + currentTab + '&year=' + y + '&month=' + m;
+    if (q) url += '&q=' + encodeURIComponent(q);
+    if (cat) url += '&category=' + encodeURIComponent(cat);
+    window.open(url, '_blank');
+}
+
+// ── 新增收入 ──
 function submitIncome() {
     const form = document.getElementById('incomeForm');
     if (!form.checkValidity()) { form.reportValidity(); return; }
@@ -58,9 +149,12 @@ function submitIncome() {
         if (!r.ok) throw new Error('保存失败');
         document.getElementById('addIncomeModal').classList.add('hidden');
         form.reset();
-        refreshFinance();
+        currentPage = 1;
+        switchFinanceTab('income');
     }).catch(e => alert('保存失败: ' + e.message));
 }
+
+// ── 新增支出 ──
 function submitExpense() {
     const form = document.getElementById('expenseForm');
     if (!form.checkValidity()) { form.reportValidity(); return; }
@@ -74,14 +168,91 @@ function submitExpense() {
         if (!r.ok) throw new Error('保存失败');
         document.getElementById('addExpenseModal').classList.add('hidden');
         form.reset();
-        refreshFinance();
+        currentPage = 1;
+        switchFinanceTab('expense');
     }).catch(e => alert('保存失败: ' + e.message));
 }
-function switchFinanceTab(tab) {
-    document.getElementById('incomeSection').classList.toggle('hidden', tab !== 'income');
-    document.getElementById('expenseSection').classList.toggle('hidden', tab !== 'expense');
-    document.getElementById('tabIncome').className = (tab === 'income' ? 'px-4 py-2 text-sm rounded-lg bg-green-600 text-white' : 'px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300');
-    document.getElementById('tabExpense').className = (tab === 'expense' ? 'px-4 py-2 text-sm rounded-lg bg-green-600 text-white' : 'px-4 py-2 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300');
+
+// ── 编辑收入 ──
+var editIncomeId = null;
+
+function openEditIncome(id) {
+    editIncomeId = id;
+    fetch('/api/finance/income/' + id)
+        .then(function(r) { if (!r.ok) throw new Error('获取失败'); return r.json(); })
+        .then(function(d) {
+            document.getElementById('editIncomeId').value = id;
+            document.getElementById('editIncomeDate').value = d.income_date || '';
+            document.getElementById('editIncomeCategory').value = d.category || '';
+            document.getElementById('editIncomeAmount').value = d.amount || 0;
+            document.getElementById('editIncomeSource').value = d.source || '';
+            document.getElementById('editIncomePayment').value = d.payment_method || '';
+            document.getElementById('editIncomeRemark').value = d.remark || '';
+            document.getElementById('editIncomeModal').classList.remove('hidden');
+        })
+        .catch(function(e) { alert('加载失败: ' + e.message); });
+}
+
+function closeEditIncomeModal() {
+    document.getElementById('editIncomeModal').classList.add('hidden');
+    editIncomeId = null;
+}
+
+function submitEditIncome() {
+    const form = document.getElementById('editIncomeForm');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    const data = Object.fromEntries(new FormData(form));
+    data.amount = parseFloat(data.amount) || 0;
+    fetch('/api/finance/income/' + editIncomeId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => {
+        if (!r.ok) throw new Error('保存失败');
+        closeEditIncomeModal();
+        loadFinanceTable();
+    }).catch(e => alert('保存失败: ' + e.message));
+}
+
+// ── 编辑支出 ──
+var editExpenseId = null;
+
+function openEditExpense(id) {
+    editExpenseId = id;
+    fetch('/api/finance/expense/' + id)
+        .then(function(r) { if (!r.ok) throw new Error('获取失败'); return r.json(); })
+        .then(function(d) {
+            document.getElementById('editExpenseId').value = id;
+            document.getElementById('editExpenseDate').value = d.expense_date || '';
+            document.getElementById('editExpenseCategory').value = d.category || '';
+            document.getElementById('editExpenseAmount').value = d.amount || 0;
+            document.getElementById('editExpensePayee').value = d.payee || '';
+            document.getElementById('editExpensePayment').value = d.payment_method || '';
+            document.getElementById('editExpenseRemark').value = d.remark || '';
+            document.getElementById('editExpenseModal').classList.remove('hidden');
+        })
+        .catch(function(e) { alert('加载失败: ' + e.message); });
+}
+
+function closeEditExpenseModal() {
+    document.getElementById('editExpenseModal').classList.add('hidden');
+    editExpenseId = null;
+}
+
+function submitEditExpense() {
+    const form = document.getElementById('editExpenseForm');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    const data = Object.fromEntries(new FormData(form));
+    data.amount = parseFloat(data.amount) || 0;
+    fetch('/api/finance/expense/' + editExpenseId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => {
+        if (!r.ok) throw new Error('保存失败');
+        closeEditExpenseModal();
+        loadFinanceTable();
+    }).catch(e => alert('保存失败: ' + e.message));
 }
 </script>
 
@@ -97,14 +268,14 @@ function switchFinanceTab(tab) {
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label><input name="income_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label>
                     <select name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
-                        <option value="售课收入">售课收入</option><option value="商品零售">商品零售</option><option value="会籍卡">会籍卡</option><option value="其他">其他</option>
+                        <option value="售课收入">售课收入</option><option value="商品零售">商品零售</option><option value="会籍卡">会籍卡</option><option value="私教课程">私教课程</option><option value="团课收入">团课收入</option><option value="储物柜租金">储物柜租金</option><option value="其他">其他</option>
                     </select>
                 </div>
                 <div><label class="block text-sm text-gray-600 mb-1">金额 *</label><input name="amount" type="number" step="0.01" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">来源</label><input name="source" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">支付方式</label>
                     <select name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
-                        <option value="">选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option>
+                        <option value="">选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="转账">转账</option><option value="刷卡">刷卡</option><option value="对公账户">对公账户</option>
                     </select>
                 </div>
             </div>
@@ -129,14 +300,14 @@ function switchFinanceTab(tab) {
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label><input name="expense_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label>
                     <select name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
-                        <option value="房租">房租</option><option value="水电">水电</option><option value="工资">工资</option><option value="设备">设备</option><option value="其他">其他</option>
+                        <option value="房租">房租</option><option value="物业水电">物业水电</option><option value="工资">工资</option><option value="设备">设备</option><option value="办公用品">办公用品</option><option value="快递费">快递费</option><option value="打印费">打印费</option><option value="通讯费">通讯费</option><option value="差旅费">差旅费</option><option value="招待费">招待费</option><option value="维修费">维修费</option><option value="网络费">网络费</option><option value="保险费">保险费</option><option value="税费">税费</option><option value="其他">其他</option>
                     </select>
                 </div>
                 <div><label class="block text-sm text-gray-600 mb-1">金额 *</label><input name="amount" type="number" step="0.01" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">收款方</label><input name="payee" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">支付方式</label>
                     <select name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
-                        <option value="">选择</option><option value="现金">现金</option><option value="转账">转账</option><option value="刷卡">刷卡</option>
+                        <option value="">选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="转账">转账</option><option value="刷卡">刷卡</option><option value="对公账户">对公账户</option>
                     </select>
                 </div>
             </div>
@@ -144,6 +315,72 @@ function switchFinanceTab(tab) {
             <div class="flex justify-end gap-2 mt-4">
                 <button type="button" onclick="document.getElementById('addExpenseModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
                 <button type="button" onclick="submitExpense()" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑收入 -->
+<div id="editIncomeModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">编辑收入</h3>
+            <button onclick="closeEditIncomeModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form id="editIncomeForm">
+            <input type="hidden" id="editIncomeId" name="id">
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-sm text-gray-600 mb-1">日期</label><input id="editIncomeDate" name="income_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">类别</label>
+                    <select id="editIncomeCategory" name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="售课收入">售课收入</option><option value="商品零售">商品零售</option><option value="会籍卡">会籍卡</option><option value="私教课程">私教课程</option><option value="团课收入">团课收入</option><option value="储物柜租金">储物柜租金</option><option value="其他">其他</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm text-gray-600 mb-1">金额 *</label><input id="editIncomeAmount" name="amount" type="number" step="0.01" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">来源</label><input id="editIncomeSource" name="source" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">支付方式</label>
+                    <select id="editIncomePayment" name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="转账">转账</option><option value="刷卡">刷卡</option><option value="对公账户">对公账户</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">备注</label><textarea id="editIncomeRemark" name="remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="closeEditIncomeModal()" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="button" onclick="submitEditIncome()" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存修改</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑支出 -->
+<div id="editExpenseModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">编辑支出</h3>
+            <button onclick="closeEditExpenseModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form id="editExpenseForm">
+            <input type="hidden" id="editExpenseId" name="id">
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-sm text-gray-600 mb-1">日期</label><input id="editExpenseDate" name="expense_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">类别</label>
+                    <select id="editExpenseCategory" name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="房租">房租</option><option value="物业水电">物业水电</option><option value="工资">工资</option><option value="设备">设备</option><option value="办公用品">办公用品</option><option value="快递费">快递费</option><option value="打印费">打印费</option><option value="通讯费">通讯费</option><option value="差旅费">差旅费</option><option value="招待费">招待费</option><option value="维修费">维修费</option><option value="网络费">网络费</option><option value="保险费">保险费</option><option value="税费">税费</option><option value="其他">其他</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm text-gray-600 mb-1">金额 *</label><input id="editExpenseAmount" name="amount" type="number" step="0.01" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">收款方</label><input id="editExpensePayee" name="payee" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">支付方式</label>
+                    <select id="editExpensePayment" name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="转账">转账</option><option value="刷卡">刷卡</option><option value="对公账户">对公账户</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">备注</label><textarea id="editExpenseRemark" name="remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="closeEditExpenseModal()" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="button" onclick="submitEditExpense()" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">保存修改</button>
             </div>
         </form>
     </div>

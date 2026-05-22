@@ -4,25 +4,55 @@
     <h2 class="text-xl font-semibold text-gray-800">到期提醒</h2>
 </div>
 
-<div class="mb-4 flex gap-2">
-    <select id="statusFilter" class="px-3 py-2 border rounded-lg text-sm"
-            hx-get="/api/alerts/table" hx-trigger="change" hx-target="#alertTable" hx-params="status">
-        <option value="">全部状态</option>
-        <option value="未处理">未处理</option>
-        <option value="处理中">处理中</option>
-        <option value="已处理">已处理</option>
-    </select>
-    <select id="typeFilter" class="px-3 py-2 border rounded-lg text-sm"
-            hx-get="/api/alerts/table" hx-trigger="change" hx-target="#alertTable" hx-params="alert_type">
+<!-- 筛选栏 -->
+<div class="mb-4 flex flex-wrap items-center gap-3">
+    <select id="typeFilter" class="px-3 py-2 border rounded-lg text-sm bg-white">
         <option value="">全部类型</option>
         <option value="会籍到期">会籍到期</option>
         <option value="课程到期">课程到期</option>
-        <option value="充值提醒">充值提醒</option>
+        <option value="包月到期">包月到期</option>
+        <option value="会员到期">会员到期</option>
         <option value="生日提醒">生日提醒</option>
     </select>
+    <select id="tabFilter" class="px-3 py-2 border rounded-lg text-sm bg-white">
+        <option value="all">全部状态</option>
+        <option value="expiring">即将到期</option>
+        <option value="expired">已过期</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="搜索会员姓名..."
+           class="flex-1 min-w-[200px] px-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+           autocomplete="off">
+    <button onclick="doSearch()"
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">查询</button>
+    <button onclick="resetFilters()"
+            class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">重置</button>
 </div>
 
-<div id="alertTable" hx-get="/api/alerts/table" hx-trigger="load">
+<!-- 内容区 -->
+<div id="alertContent" hx-get="/api/alerts/table" hx-trigger="load">
     <div class="text-center py-8 text-gray-400">加载中...</div>
 </div>
+
+<script>
+function doSearch() {
+    var type = document.getElementById('typeFilter').value;
+    var tab = document.getElementById('tabFilter').value;
+    var q = document.getElementById('searchInput').value;
+    var url = '/api/alerts/table?tab=' + encodeURIComponent(tab) + '&alert_type=' + encodeURIComponent(type) + '&q=' + encodeURIComponent(q);
+    htmx.ajax('GET', url, {target: '#alertContent', swap: 'innerHTML'});
+}
+
+function resetFilters() {
+    document.getElementById('typeFilter').value = '';
+    document.getElementById('tabFilter').value = 'all';
+    document.getElementById('searchInput').value = '';
+    htmx.ajax('GET', '/api/alerts/table', {target: '#alertContent', swap: 'innerHTML'});
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.activeElement === document.getElementById('searchInput')) {
+        doSearch();
+    }
+});
+</script>
 {% endblock %}
