@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.6.5 — 售课记录编辑功能
+V3.6.6 — 资产残值标签优化 + 课程包类型联动
 """
 import os
 import sys
@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.6.5 — ConversationRuntime AI 对话",
-    version="3.6.5",
+    description="Web 版健身管理系统 V3.6.6 — ConversationRuntime AI 对话",
+    version="3.6.6",
 )
 
 # 模板
@@ -620,7 +620,7 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.6.5", "system_name": name}
+    return {"status": "ok", "version": "3.6.6", "system_name": name}
 
 
 # 路由注册

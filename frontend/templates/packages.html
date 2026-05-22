@@ -99,13 +99,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">类型</label>
-                        <select name="package_type"
+                        <select name="package_type" onchange="toggleCountField(this)"
                                 class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
                             <option value="计次打包">🎯 计次打包（按次扣减）</option>
                             <option value="不限次数">♾️ 不限次数（有效期无忧）</option>
                         </select>
                     </div>
-                    <div>
+                    <div id="countField">
                         <label class="block text-sm font-medium text-gray-700 mb-1">次数</label>
                         <input name="total_count" type="number" value="0"
                                class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
@@ -218,6 +218,20 @@ function openEditProduct(packageId) {
 
 function closeProductModal() {
     document.getElementById('productModal').classList.add('hidden');
+}
+
+// 不限次数 ↔ 计次打包：切换时禁用/启用次数输入
+function toggleCountField(sel) {
+    var field = document.getElementById('countField');
+    var input = field.querySelector('input[name="total_count"]');
+    if (sel.value === '不限次数') {
+        input.disabled = true;
+        input.value = 0;
+        field.classList.add('opacity-40');
+    } else {
+        input.disabled = false;
+        field.classList.remove('opacity-40');
+    }
 }
 
 function toggleProductStatus(packageId) {

@@ -290,7 +290,7 @@ _CHAT_PAGE_HTML = """<!DOCTYPE html>
                 <span class="text-xl">🤖</span>
                 AI 助手
             </h1>
-            <span class="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/70">v3.6.5</span>
+            <span class="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/70">v3.6.6</span>
         </div>
         <div class="flex items-center gap-3">
             <button onclick="clearChat()" class="text-sm text-white/60 hover:text-white transition px-3 py-1.5 rounded-lg border border-white/20 hover:border-white/50 flex items-center gap-1">

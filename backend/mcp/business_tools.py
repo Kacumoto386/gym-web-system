@@ -755,7 +755,7 @@ def register_common_tools() -> List[ToolDefinition]:
         """获取系统基本信息"""
         return ToolResult.ok(data={
             "name": "鼠小弟健身管理系统",
-            "version": "3.6.5",
+            "version": "3.6.6",
             "description": "健身房综合管理系统 — 会员/员工/课程/售课/进场/财务",
             "database": "SQLite",
             "framework": "FastAPI + HTMX + TailwindCSS",

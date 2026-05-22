@@ -15,10 +15,10 @@
            class="flex-1 md:w-80 px-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
            oninput="searchAssets(this.value)"
            autocomplete="off">
-    <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+    <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none" title="不勾选时仅显示有资产（会籍卡/私教课/课程包）的会员">
         <input type="checkbox" id="showAllToggle" onchange="searchAssets()"
                class="rounded border-gray-300 text-blue-600 focus:ring-blue-400">
-        显示全部会员
+        包含零资产会员
     </label>
 </div>
 
