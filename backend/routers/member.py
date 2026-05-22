@@ -42,7 +42,7 @@ def _build_table(rows: list, sort_by: str = "created_at", sort_dir: str = "desc"
         arrow = ""
         if sort_by == col_id:
             arrow = " ▲" if sort_dir == "asc" else " ▼"
-        return f'<th class="px-4 py-3 cursor-pointer hover:bg-gray-200 select-none" onclick="sortTable(\'{col_id}\')">{label}{arrow}</th>'
+        return f'<th class="px-3 py-2 cursor-pointer hover:bg-gray-200 select-none" onclick="sortTable(\'{col_id}\')">{label}{arrow}</th>'
 
     trs = ""
     for m in rows:
@@ -50,18 +50,18 @@ def _build_table(rows: list, sort_by: str = "created_at", sort_dir: str = "desc"
         lcd = str(m.last_checkin_date) if m.last_checkin_date else "-"
         name_escaped = m.name.replace("'", "\\'")
         trs += f"""<tr class="hover:bg-gray-50 border-b">
-            <td class="px-4 py-3 text-sm text-gray-500">{m.member_id}</td>
-            <td class="px-4 py-3"><a href="/members/{m.member_id}" class="text-blue-600 hover:text-blue-800 hover:underline">{m.name}</a></td>
-            <td class="px-4 py-3 text-sm">{m.gender or ''}</td>
-            <td class="px-4 py-3 text-sm">{m.phone or ''}</td>
-            <td class="px-4 py-3 text-sm"><span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{m.level}</span></td>
-            <td class="px-4 py-3 text-sm">{m.remaining_lessons}</td>
-            <td class="px-4 py-3 text-sm">{'%.2f' % m.balance}</td>
-            <td class="px-4 py-3 text-sm text-gray-500">{lcd}</td>
-            <td class="px-4 py-3 text-sm">{m.source or ''}</td>
-            <td class="px-4 py-3 text-sm">{m.staff_name or ''}</td>
-            <td class="px-4 py-3 text-sm"><span class="px-2 py-0.5 {status_class} rounded text-xs">{m.status or '正常'}</span></td>
-            <td class="px-4 py-3 text-sm whitespace-nowrap">
+            <td class="px-3 py-2 text-sm text-gray-500">{m.member_id}</td>
+            <td class="px-3 py-2"><a href="/members/{m.member_id}" class="text-blue-600 hover:text-blue-800 hover:underline">{m.name}</a></td>
+            <td class="px-3 py-2 text-sm">{m.gender or ''}</td>
+            <td class="px-3 py-2 text-sm">{m.phone or ''}</td>
+            <td class="px-3 py-2 text-sm"><span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{m.level}</span></td>
+            <td class="px-3 py-2 text-sm">{m.remaining_lessons}</td>
+            <td class="px-3 py-2 text-sm">{'%.2f' % m.balance}</td>
+            <td class="px-3 py-2 text-sm text-gray-500">{lcd}</td>
+            <td class="px-3 py-2 text-sm">{m.source or ''}</td>
+            <td class="px-3 py-2 text-sm">{m.staff_name or ''}</td>
+            <td class="px-3 py-2 text-sm"><span class="px-1.5 py-0.5 {status_class} rounded text-xs">{m.status or '正常'}</span></td>
+            <td class="px-3 py-2 text-sm whitespace-nowrap">
                 <a href="/members/{m.member_id}" class="text-blue-600 hover:text-blue-800 mr-2">详情</a>
                 <button class="text-blue-600 hover:text-blue-800 mr-2" onclick="openEditModal('{m.member_id}')">编辑</button>
                 <button class="text-green-600 hover:text-green-800 mr-2" onclick="openSellCardModal('{m.member_id}', '{name_escaped}')">售卡</button>
@@ -83,7 +83,7 @@ def _build_table(rows: list, sort_by: str = "created_at", sort_dir: str = "desc"
                 {_th('source', '来源')}
                 {_th('staff_name', '跟进')}
                 {_th('status', '状态')}
-                <th class="px-4 py-3">操作</th>
+                <th class="px-3 py-2">操作</th>
             </tr>
         </thead>
         <tbody>
@@ -108,7 +108,7 @@ def _build_pagination(page: int, total: int, total_pages: int) -> str:
     prev_onclick = "" if page <= 1 else f'onclick="goPage({page-1})"'
     next_onclick = "" if page >= total_pages else f'onclick="goPage({page+1})"'
 
-    return f"""<div class="flex items-center justify-between mt-4 pt-3 border-t">
+    return f"""<div class="flex items-center justify-between mt-3 pt-2 border-t">
         <span class="text-sm text-gray-500">共 {total} 条记录</span>
         <div class="flex items-center gap-1">
             <button class="px-3 py-1.5 border rounded text-sm {prev_disabled}" {prev_onclick}>上一页</button>
@@ -229,12 +229,12 @@ def member_stats(db: Session = Depends(get_db)):
     ]
     html = ""
     for label, value, unit, bg, fg in cards:
-        html += f"""<div class="{bg} rounded-lg p-3 text-center">
+        html += f"""<div class="{bg} rounded-lg p-2.5 text-center">
             <div class="text-xs text-gray-500">{label}</div>
-            <div class="text-xl font-bold {fg} mt-1">{value}</div>
+            <div class="text-xl font-bold {fg} mt-0">{value}</div>
             <div class="text-xs text-gray-400">{unit}</div>
         </div>"""
-    return f'<div class="grid grid-cols-4 gap-3 mb-5">{html}</div>'
+    return f'<div class="grid grid-cols-4 gap-2 mb-3">{html}</div>'
 
 
 # ═══════════════════════════════════════════

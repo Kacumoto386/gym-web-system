@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.6.1 — 预约管理详情查看 + 时间校验
+V3.6.2 — 会员管理页面 UI 紧凑化
 """
 import os
 import sys
