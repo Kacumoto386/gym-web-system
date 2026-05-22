@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.5.9 — 预约管理增加课程购买校验
+V3.6.0 — 售课到期日期显示修复
 """
 import os
 import sys
@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.5.9 — ConversationRuntime AI 对话",
-    version="3.5.9",
+    description="Web 版健身管理系统 V3.6.0 — ConversationRuntime AI 对话",
+    version="3.6.0",
 )
 
 # 模板
@@ -615,7 +615,7 @@ def performance_checkins_page(request: Request):
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.5.9", "system_name": name}
+    return {"status": "ok", "version": "3.6.0", "system_name": name}
 
 
 # 路由注册

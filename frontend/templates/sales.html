@@ -80,7 +80,7 @@
                         <option value="已付清">已付清</option><option value="部分支付">部分支付</option><option value="未付款">未付款</option>
                     </select>
                 </div>
-                <div><label class="block text-sm text-gray-600 mb-1">开卡日期</label><input id="fldStartDate" name="start_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">开卡日期</label><input id="fldStartDate" name="start_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm" onchange="autoCalcEndDate()"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">到期日期</label><input id="fldEndDate" name="end_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <!-- 销售人员：搜索输入框 + 下拉列表 -->
                 <div class="relative">
@@ -275,9 +275,9 @@ function filterCourses() {
     } else {
         dd.innerHTML = list.map(c =>
             `<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between"
-                  onmousedown="selectCourse('${c.course_id}', '${(c.name || '').replace(/'/g, "\\'")}', ${c.standard_price || 0}, this)">
+                  onmousedown="selectCourse('${c.course_id}', '${(c.name || '').replace(/'/g, "\\'")}', ${c.standard_price || 0}, ${c.valid_days || 0}, this)">
                 <span>${c.name || '-'}</span>
-                <span class="text-gray-400 text-xs ml-2">${c.course_type || ''} · ¥${c.standard_price || 0}</span>
+                <span class="text-gray-400 text-xs ml-2">${c.course_type || ''} · ¥${c.standard_price || 0}${c.valid_days ? ' · ' + c.valid_days + '天' : ''}</span>
             </div>`
         ).join('');
     }
@@ -295,8 +295,8 @@ function hideCourseDropdown() {
     setTimeout(() => document.getElementById('courseDropdown').classList.add('hidden'), 200);
 }
 
-function selectCourse(id, name, price, el) {
-    courseSelected = { id, name, price };
+function selectCourse(id, name, price, validDays, el) {
+    courseSelected = { id, name, price, validDays };
     document.getElementById('fldCourseId').value = id;
     document.getElementById('fldCourseName').value = name;
     document.getElementById('fldUnitPrice').value = price;
@@ -304,6 +304,25 @@ function selectCourse(id, name, price, el) {
         `<span class="text-gray-700">${name}</span><span class="text-gray-400 text-xs ml-2">${id} · ¥${price}</span>`;
     document.getElementById('searchCourse').value = name;
     document.getElementById('courseDropdown').classList.add('hidden');
+    // 自动计算到期日期
+    if (validDays > 0) {
+        var startVal = document.getElementById('fldStartDate').value;
+        if (startVal) {
+            var d = new Date(startVal);
+            d.setDate(d.getDate() + validDays);
+            document.getElementById('fldEndDate').value = d.toISOString().split('T')[0];
+        }
+    }
+}
+
+function autoCalcEndDate() {
+    if (!courseSelected || !courseSelected.validDays) return;
+    var startVal = document.getElementById('fldStartDate').value;
+    if (startVal) {
+        var d = new Date(startVal);
+        d.setDate(d.getDate() + courseSelected.validDays);
+        document.getElementById('fldEndDate').value = d.toISOString().split('T')[0];
+    }
 }
 
 function clearCourse() {

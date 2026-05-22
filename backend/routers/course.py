@@ -274,7 +274,8 @@ def course_search_json(q: str = Query(""), db: Session = Depends(get_db)):
         )
     return [
         {"course_id": c.course_id, "name": c.name, "standard_price": c.standard_price or 0,
-         "standard_hours": c.standard_hours or 1, "course_type": c.course_type or ""}
+         "standard_hours": c.standard_hours or 1, "course_type": c.course_type or "",
+         "valid_days": c.valid_days or 0}
         for c in query.order_by(Course.course_id).limit(50).all()
     ]
 

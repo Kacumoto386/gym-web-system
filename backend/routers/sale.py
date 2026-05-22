@@ -61,7 +61,11 @@ def _get_lesson_info(db, sale):
                 valid_until = p.valid_until
 
     if remaining is None:
-        return sale.total_hours or 0, sale.total_hours or 0, None
+        # 无对应 LessonPackage 时回退到 Sale 自身的到期时间
+        return sale.total_hours or 0, sale.total_hours or 0, sale.end_date
+    # 即使有包但无到期时间，也回退到 Sale 自身的到期时间
+    if valid_until is None and sale.end_date:
+        valid_until = sale.end_date
     return remaining, total, valid_until
 
 

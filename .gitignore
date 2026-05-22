@@ -63,6 +63,14 @@ server.log
 /marked_*.js
 /marked_*.html
 /test_*.html
+/test_marked*.html
+/test_marked*.js
+/server.log
+/session_clear.json
+
+# Scripts / tools
+/scripts/
+/tools/
 
 # Backup / log files
 *.bak
@@ -91,5 +99,7 @@ test_reports/
 /start*.bat
 /run_*.bat
 
-# Claude
+# Claude / IDE
 .claude/
+.idea/
+.vscode/
