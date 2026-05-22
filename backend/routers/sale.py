@@ -8,7 +8,7 @@ from fastapi import Request, APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import date
+from datetime import date, datetime
 from backend.database import get_db
 from backend.models.models import Sale, LessonPackage
 from backend.services.id_gen import generate_id
@@ -78,6 +78,12 @@ def _build_table(rows: list, db: Session = None) -> str:
         return '<div class="text-center py-8 text-gray-400">暂无售课记录</div>'
     trs = ""
     for s in rows:
+        is_voided = getattr(s, 'voided', 0) or 0
+        void_badge = ''
+        void_cls = ''
+        if is_voided:
+            void_badge = ' <span class="px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded text-xs">已作废</span>'
+            void_cls = ' opacity-50'
         payment_cls = {
             "已付款": "bg-green-100 text-green-700",
             "部分支付": "bg-yellow-100 text-yellow-700",
@@ -109,10 +115,20 @@ def _build_table(rows: list, db: Session = None) -> str:
         else:
             expire_col = '<span class="text-gray-400">-</span>'
 
+        # 操作列
+        if is_voided:
+            action_col = '<span class="text-gray-400 text-xs">已作废</span>'
+        else:
+            action_col = (
+                '<button class="text-blue-600 hover:text-blue-800 mr-2" onclick="openEditSale(\'{}\')">编辑</button>'
+                '<button class="text-red-500 hover:text-red-700" '
+                'onclick="openVoidModal(\'{}\', \'/api/sales/{}/void\')">作废</button>'
+            ).format(s.sale_id, s.sale_id, s.sale_id)
+
+        trs += '<tr class="hover:bg-gray-50 border-b' + void_cls + '">'
         trs += (
-            '<tr class="hover:bg-gray-50 border-b">'
             '<td class="px-4 py-3 text-sm text-gray-500">{}</td>'
-            '<td class="px-4 py-3">{}</td>'
+            '<td class="px-4 py-3">{}{}</td>'
             '<td class="px-4 py-3 text-sm text-gray-500">{}</td>'
             '<td class="px-4 py-3">{}</td>'
             '<td class="px-4 py-3 text-sm">{}</td>'
@@ -121,16 +137,11 @@ def _build_table(rows: list, db: Session = None) -> str:
             '<td class="px-4 py-3 text-sm">{}</td>'
             '<td class="px-4 py-3 text-sm"><span class="px-2 py-0.5 {} rounded text-xs">{}</span></td>'
             '<td class="px-4 py-3 text-sm">{}</td>'
-            '<td class="px-4 py-3 text-sm">'
-            '<button class="text-blue-600 hover:text-blue-800 mr-2" onclick="openEditSale(\'{}\')">编辑</button>'
-            '<button class="text-red-500 hover:text-red-700" '
-            'hx-delete="/api/sales/{}" hx-target="#saleTable" '
-            'hx-confirm="确认删除售课记录？">删除</button>'
-            '</td>'
+            '<td class="px-4 py-3 text-sm">{}</td>'
             '</tr>'
         ).format(
             s.sale_id,
-            s.member_name or '',
+            s.member_name or '', void_badge,
             s.member_id,
             s.course_name or '',
             lesson_col,
@@ -139,8 +150,7 @@ def _build_table(rows: list, db: Session = None) -> str:
             s.payment_method or '',
             payment_cls, s.payment_status or '',
             s.sale_date,
-            s.sale_id,   # edit button
-            s.sale_id,   # delete button
+            action_col,
         )
     return (
         '<table class="w-full bg-white rounded-lg shadow-sm">'
@@ -161,11 +171,23 @@ def _build_table(rows: list, db: Session = None) -> str:
 
 @router.get("/table", response_class=HTMLResponse)
 def sale_table(member_id: str = "", db: Session = Depends(get_db)):
-    query = db.query(Sale)
+    # 查询（排除已作废）
+    query = db.query(Sale).filter(Sale.voided == 0)
     if member_id:
         query = query.filter(Sale.member_id == member_id)
     rows = query.order_by(Sale.id.desc()).limit(100).all()
     # Pass db to _build_table for lesson info lookup
+    html = _build_table(rows, db)
+    return HTMLResponse(content=html)
+
+
+@router.get("/voided/table", response_class=HTMLResponse)
+def voided_sale_table(member_id: str = "", db: Session = Depends(get_db)):
+    """已作废售课记录表格"""
+    query = db.query(Sale).filter(Sale.voided == 1)
+    if member_id:
+        query = query.filter(Sale.member_id == member_id)
+    rows = query.order_by(Sale.id.desc()).limit(100).all()
     html = _build_table(rows, db)
     return HTMLResponse(content=html)
 
@@ -308,6 +330,37 @@ def update_sale(sale_id: str, data: SaleCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(sale)
     return sale
+
+
+class VoidRequest(BaseModel):
+    reason: str = ""
+
+
+@router.put("/{sale_id}/void")
+def void_sale(sale_id: str, data: VoidRequest, request: Request, db: Session = Depends(get_db)):
+    """作废售课记录（标记作废，不删除）"""
+    sale = db.query(Sale).filter(Sale.sale_id == sale_id).first()
+    if not sale:
+        raise HTTPException(status_code=404, detail="售课记录不存在")
+    if getattr(sale, 'voided', 0):
+        raise HTTPException(status_code=400, detail="该记录已作废")
+    # 获取操作人
+    token = request.cookies.get("access_token", "")
+    operator = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            operator = payload.get("sub", "系统")
+        except Exception:
+            pass
+    sale.voided = 1
+    sale.void_reason = data.reason
+    sale.void_time = datetime.now()
+    sale.void_operator = operator
+    db.commit()
+    return {"success": True, "message": f"售课记录 {sale_id} 已作废"}
 
 
 @router.delete("/{sale_id}")

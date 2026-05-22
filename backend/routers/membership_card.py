@@ -15,6 +15,10 @@ from pydantic import BaseModel
 
 TODAY = date.today()
 
+
+class VoidRequest(BaseModel):
+    reason: str = ""
+
 router = APIRouter(prefix="/api/membership-cards", tags=["会籍卡管理"])
 
 
@@ -197,15 +201,27 @@ def _build_sold_table(rows: list) -> str:
             if summary_val <= 0:
                 is_exhausted = True
 
-        if is_exhausted and c.status == "有效":
-            display_status = "已用完"
-            st_cls = "bg-gray-100 text-gray-500"
+        is_voided = getattr(c, 'voided', 0)
+        if is_voided:
+            display_status = "已作废"
+            st_cls = "bg-gray-200 text-gray-500"
+            row_cls = "hover:bg-gray-50 border-b opacity-50"
+            action_col = '<span class="text-gray-400 text-xs">已作废</span>'
         else:
-            display_status = c.status or ''
-            st_cls = status_cls
+            if is_exhausted and c.status == "有效":
+                display_status = "已用完"
+                st_cls = "bg-gray-100 text-gray-500"
+            else:
+                display_status = c.status or ''
+                st_cls = status_cls
+            row_cls = "hover:bg-gray-50 border-b"
+            action_col = (
+                '<button class="text-red-500 hover:text-red-700" '
+                'onclick="openVoidModal(\'{cid}\', \'/api/membership-cards/sold/{cid}/void\')">作废</button>'
+            )
 
         row = (
-            '<tr class="hover:bg-gray-50 border-b">'
+            '<tr class="{row_cls}">'
             '<td class="px-4 py-3 text-sm text-gray-500">{card_id}</td>'
             '<td class="px-4 py-3">{member_name}</td>'
             '<td class="px-4 py-3 text-sm text-gray-500">{member_id}</td>'
@@ -217,11 +233,7 @@ def _build_sold_table(rows: list) -> str:
             '<td class="px-4 py-3 text-sm">{start}</td>'
             '<td class="px-4 py-3 text-sm">{end_col}</td>'
             '<td class="px-4 py-3 text-sm"><span class="px-2 py-0.5 {st_cls} rounded text-xs">{status_display}</span></td>'
-            '<td class="px-4 py-3 text-sm">'
-            '<button class="text-red-500 hover:text-red-700" '
-            'hx-delete="/api/membership-cards/sold/{cid}" '
-            'hx-target="#cardSoldTable" hx-confirm="确认删除售卡记录？">删除</button>'
-            '</td>'
+            '<td class="px-4 py-3 text-sm">{action_col}</td>'
             '</tr>'
         ).format(
             card_id=c.card_id,
@@ -236,7 +248,8 @@ def _build_sold_table(rows: list) -> str:
             end_col=end_col,
             st_cls=st_cls,
             status_display=display_status,
-            cid=c.card_id,
+            row_cls=row_cls,
+            action_col=action_col,
         )
         trs += row
 
@@ -269,7 +282,7 @@ def product_table(db: Session = Depends(get_db)):
 
 @router.get("/sold/table", response_class=HTMLResponse)
 def sold_table(member_id: str = "", db: Session = Depends(get_db)):
-    q = db.query(MembershipCard).filter(MembershipCard.is_product == 0)
+    q = db.query(MembershipCard).filter(MembershipCard.is_product == 0, MembershipCard.voided == 0)
     if member_id:
         q = q.filter(MembershipCard.member_id == member_id)
     return _build_sold_table(q.order_by(MembershipCard.id.desc()).limit(100).all())
@@ -392,6 +405,32 @@ def delete_sold(card_id: str, db: Session = Depends(get_db)):
     db.delete(c)
     db.commit()
     return {"success": True}
+
+
+@router.put("/sold/{card_id}/void")
+def void_sold_card(card_id: str, data: VoidRequest, request: Request, db: Session = Depends(get_db)):
+    """作废售卡记录（标记作废，不删除）"""
+    c = db.query(MembershipCard).filter(MembershipCard.card_id == card_id, MembershipCard.is_product == 0).first()
+    if not c:
+        raise HTTPException(404, "售卡记录不存在")
+    if getattr(c, 'voided', 0):
+        raise HTTPException(400, "该记录已作废")
+    token = request.cookies.get("access_token", "")
+    operator = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            operator = payload.get("sub", "系统")
+        except Exception:
+            pass
+    c.voided = 1
+    c.void_reason = data.reason
+    c.void_time = datetime.now()
+    c.void_operator = operator
+    db.commit()
+    return {"success": True, "message": f"售卡记录 {card_id} 已作废"}
 
 
 @router.get("")

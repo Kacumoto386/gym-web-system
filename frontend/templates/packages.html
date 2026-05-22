@@ -23,6 +23,10 @@
                 class="px-5 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700">
             🛒 已售课程包
         </button>
+        <button id="tabMonthlyPass" onclick="switchTab('monthlypass')"
+                class="px-5 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700">
+            🎫 包月管理
+        </button>
     </div>
 </div>
 
@@ -57,26 +61,21 @@
     </div>
 </div>
 
-<script>
-// 切换 Tab 时刷新已售课程包数据
-document.addEventListener('DOMContentLoaded', function() {
-    // 调试：检查已售课程包数据是否在 DOM 中
-    const area = document.getElementById('memberPackageTableArea');
-    if (area) {
-        const htmlLen = area.innerHTML.length;
-        const hasData = area.innerHTML.indexOf('鼠小弟') >= 0;
-        const hasTable = area.innerHTML.indexOf('<table') >= 0;
-        console.log('memberPackageTableArea:', htmlLen, 'chars, hasData:', hasData, 'hasTable:', hasTable);
-        // 在页面上显示调试信息
-        const debug = document.createElement('div');
-        debug.style.cssText = 'position:fixed;bottom:10px;right:10px;background:#333;color:#0f0;padding:8px 12px;border-radius:6px;font-size:12px;z-index:9999;';
-        debug.textContent = '已售:' + htmlLen + 'ch ' + (hasData ? '✅' : '❌') + ' ' + (hasTable ? '表格' : '⛔');
-        document.body.appendChild(debug);
-    } else {
-        console.error('memberPackageTableArea NOT FOUND!');
-    }
-});
-</script>
+<!-- ═══ Tab 3: 包月管理 ═══ -->
+<div id="tabMonthlyPassContent" style="display:none">
+    <div class="flex items-center justify-between mb-4">
+        <span class="text-sm font-medium text-gray-700">🎫 包月记录管理</span>
+        <button onclick="openAddMonthlyPass()"
+                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">+ 新建包月</button>
+    </div>
+    <div id="monthlyPassTable" hx-get="/api/packages/monthly-passes/table" hx-trigger="load">
+        <div class="text-center py-8 text-gray-400">加载中...</div>
+    </div>
+</div>
+
+{% block page_js %}
+<script src="/static/js/packages.js"></script>
+{% endblock %}
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 产品新建/编辑弹窗 -->
@@ -150,236 +149,97 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
-<script>
-let editingProductId = null;
+<!-- ════════════════════════════════════════════ -->
+<!-- 包月管理 新建/编辑弹窗 -->
+<!-- ════════════════════════════════════════════ -->
+<div id="monthlyPassModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex justify-between items-center mb-5">
+            <h3 class="text-lg font-semibold text-gray-800" id="mpModalTitle">新建包月</h3>
+            <button onclick="closeMonthlyPassModal()"
+                    class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        <input type="hidden" id="mpEditPassId">
+        <div class="space-y-4">
+            <div class="relative">
+                <label class="block text-sm font-medium text-gray-700 mb-1">会员 <span class="text-red-400">*</span></label>
+                <div class="flex gap-2">
+                    <input id="mpMemberSearch" type="text" placeholder="输入会员编号/姓名/手机号"
+                           class="flex-1 px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                           oninput="searchMemberMP()">
+                    <input id="mpMemberName" readonly
+                           class="w-28 px-3 py-2.5 border rounded-lg text-sm bg-gray-50">
+                </div>
+                <div id="mpMemberResults" class="hidden bg-white border rounded-lg shadow-lg max-h-40 overflow-y-auto absolute z-50 w-full" style="top:100%;left:0"></div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">名称 <span class="text-red-400">*</span></label>
+                <input id="mpPassName" required
+                       class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">类型</label>
+                    <select id="mpPassType"
+                            class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        <option value="group">🎫 包月团课</option>
+                        <option value="private">🎫 包月私教</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">售价（元）</label>
+                    <input id="mpPrice" type="number" step="0.01" value="0"
+                           class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">包含课程</label>
+                <input id="mpCourseNames" placeholder="课程1 / 课程2"
+                       class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                <p class="text-xs text-gray-400 mt-1">用 / 分隔多个课程名称</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">有效期起</label>
+                    <input id="mpValidFrom" type="date"
+                           class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">有效期止</label>
+                    <input id="mpValidUntil" type="date"
+                           class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">购买日期</label>
+                    <input id="mpPurchaseDate" type="date"
+                           class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
+                    <select id="mpStatus"
+                            class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                        <option value="正常">正常</option>
+                        <option value="已过期">已过期</option>
+                        <option value="已用完">已用完</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                <textarea id="mpRemark" rows="2"
+                          class="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
+            </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
+            <button type="button" onclick="closeMonthlyPassModal()"
+                    class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">取消</button>
+            <button type="button" onclick="saveMonthlyPass()"
+                    class="px-5 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-sm">保存</button>
+        </div>
+    </div>
+</div>
 
-// ═══════════════════════════
-// Tab 切换
-// ═══════════════════════════
-function switchTab(tab) {
-    // 强制显示/隐藏 Tab 内容
-    document.getElementById('tabProductsContent').style.display = (tab === 'products' ? '' : 'none');
-    document.getElementById('tabMemberContent').style.display = (tab === 'member' ? '' : 'none');
-    // Tab 按钮样式
-    ['tabProducts','tabMember'].forEach(id => {
-        const btn = document.getElementById(id);
-        const isActive = (id === 'tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
-        btn.classList.toggle('text-blue-600', isActive);
-        btn.classList.toggle('border-blue-600', isActive);
-        btn.classList.toggle('text-gray-500', !isActive);
-        btn.classList.toggle('border-transparent', !isActive);
-    });
-    if (tab === 'member') {
-        // 数据已在服务端渲染好，不需要额外请求
-    }
-    if (tab === 'products') {
-        // 使用 fetch 而非 HTMX 避免任何缓存问题
-        fetch('/api/packages/products/table?_t=' + Date.now())
-            .then(r => r.text())
-            .then(html => {
-                document.getElementById('productTableArea').innerHTML = html;
-            });
-    }
-}
-
-// ═══════════════════════════
-// 产品管理
-// ═══════════════════════════
-function openAddProduct() {
-    editingProductId = null;
-    document.getElementById('productModalTitle').textContent = '新建课程包';
-    document.getElementById('productSaveBtn').textContent = '保存';
-    document.getElementById('productForm').setAttribute('hx-post', '/api/packages/products');
-    document.getElementById('productForm').reset();
-    document.getElementById('productModal').classList.remove('hidden');
-    setTimeout(() => loadCoursePicker(), 100);
-}
-
-function openEditProduct(packageId) {
-    editingProductId = packageId;
-    document.getElementById('productModalTitle').textContent = '编辑课程包';
-    document.getElementById('productSaveBtn').textContent = '保存修改';
-    document.getElementById('productForm').setAttribute('hx-put', '/api/packages/products/' + packageId);
-
-    fetch('/api/packages/products/' + packageId)
-        .then(r => r.json())
-        .then(d => {
-            document.querySelector('input[name="package_name"]').value = d.package_name || '';
-            document.querySelector('select[name="package_type"]').value = d.package_type || '计次打包';
-            document.querySelector('input[name="total_count"]').value = d.total_count || 0;
-            document.querySelector('input[name="standard_price"]').value = d.standard_price || 0;
-            document.querySelector('input[name="discount_price"]').value = d.discount_price || 0;
-            document.querySelector('input[name="valid_days"]').value = d.valid_days || 30;
-            document.querySelector('textarea[name="remark"]').value = d.remark || '';
-            document.getElementById('productModal').classList.remove('hidden');
-            loadCoursePickerWithSelection((d.included_courses || '').split(','));
-        });
-}
-
-function closeProductModal() {
-    document.getElementById('productModal').classList.add('hidden');
-}
-
-// 不限次数 ↔ 计次打包：切换时禁用/启用次数输入
-function toggleCountField(sel) {
-    var field = document.getElementById('countField');
-    var input = field.querySelector('input[name="total_count"]');
-    if (sel.value === '不限次数') {
-        input.disabled = true;
-        input.value = 0;
-        field.classList.add('opacity-40');
-    } else {
-        input.disabled = false;
-        field.classList.remove('opacity-40');
-    }
-}
-
-function toggleProductStatus(packageId) {
-    fetch('/api/packages/products/' + packageId + '/toggle-status', { method: 'POST' })
-        .then(r => r.json())
-        .then(() => htmx.ajax('GET', '/api/packages/products/table?_t=' + Date.now(), { target: '#productTableArea', swap: 'innerHTML' }));
-}
-
-// ═══════════════════════════
-// 已售课程包搜索
-// ═══════════════════════════
-function searchMemberPackages() {
-    const kw = document.getElementById('mpKeyword').value;
-    const st = document.getElementById('mpStatus').value;
-    const params = [];
-    if (kw) params.push('keyword=' + encodeURIComponent(kw));
-    if (st) params.push('status=' + encodeURIComponent(st));
-    params.push('_t=' + Date.now());
-    htmx.ajax('GET', '/api/packages/member-packages?' + params.join('&'), { target: '#memberPackageTableArea' });
-}
-
-// ═══════════════════════════
-// 课程多选卡片
-// ═══════════════════════════
-let allCourses = [];
-
-function loadCoursePicker() {
-    fetch('/api/courses?status=上架')
-        .then(r => r.json())
-        .then(courses => {
-            allCourses = courses;
-            renderCoursePicker(allCourses);
-        })
-        .catch(() => document.getElementById('courseSelectContainer').innerHTML = '<div class="text-red-400 text-sm py-2">加载课程失败</div>');
-}
-
-function renderCoursePicker(courses) {
-    const preselect = window._preselectCourseIds || [];
-    const container = document.getElementById('courseSelectContainer');
-    let html = '<div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto p-1.5 border rounded-lg bg-gray-50/50">';
-    courses.forEach(c => {
-        const checked = preselect.includes(c.course_id) ? 'checked' : '';
-        const typeTag = getCourseTypeTag(c);
-        html += `
-            <label class="flex items-center gap-2 px-2.5 py-1.5 rounded cursor-pointer transition-colors
-                          ${checked ? 'bg-blue-100 border border-blue-300' : 'bg-white border border-gray-200 hover:bg-gray-100'}">
-                <input type="checkbox" name="included_courses" value="${c.course_id}"
-                       onchange="toggleCourseCard(this)" ${checked}>
-                <span class="text-sm font-medium truncate">${c.name || c.course_id || ''}</span>
-                ${typeTag}
-            </label>`;
-    });
-    html += '</div><p class="text-xs text-gray-400 mt-1">✓ 勾选的课程将包含在课程包中</p>';
-    container.innerHTML = html;
-    window._preselectCourseIds = null;
-}
-
-function getCourseTypeTag(c) {
-    const ct = (c.course_type || '').trim();
-    if (ct.includes('私教') || ct.includes('小班')) return '<span class="text-xs text-orange-500 shrink-0">私教</span>';
-    if (ct.includes('团课') || ct.includes('大班')) return '<span class="text-xs text-purple-500 shrink-0">团课</span>';
-    return '';
-}
-
-function toggleCourseCard(cb) {
-    const label = cb.closest('label');
-    if (cb.checked) {
-        label.classList.remove('bg-white', 'border-gray-200', 'hover:bg-gray-100');
-        label.classList.add('bg-blue-100', 'border-blue-300');
-    } else {
-        label.classList.remove('bg-blue-100', 'border-blue-300');
-        label.classList.add('bg-white', 'border-gray-200', 'hover:bg-gray-100');
-    }
-}
-
-function loadCoursePickerWithSelection(selectedIds) {
-    fetch('/api/courses?status=上架')
-        .then(r => r.json())
-        .then(courses => {
-            allCourses = courses;
-            window._preselectCourseIds = selectedIds.filter(id => id);
-            renderCoursePicker(allCourses);
-        });
-}
-
-// ═══════════════════════════
-// 添加课程弹窗
-// ═══════════════════════════
-function openAddCourse(packageId, packageName) {
-    const overlay = document.createElement('div');
-    overlay.id = 'addCourseOverlay';
-    overlay.className = 'fixed inset-0 bg-black/40 z-50 flex items-center justify-center';
-    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
-
-    fetch('/api/courses?status=上架')
-        .then(r => r.json())
-        .then(courses => {
-            const opts = courses.map(c =>
-                `<option value="${c.course_id}">${c.name || c.course_id} (${c.course_type || ''})</option>`
-            ).join('');
-            overlay.innerHTML = `
-                <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6" onclick="event.stopPropagation()">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-base font-semibold">＋ 添加课程</h3>
-                        <button onclick="document.getElementById('addCourseOverlay').remove()"
-                                class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
-                    </div>
-                    <p class="text-sm text-gray-500 mb-3">为「${packageName}」添加课程</p>
-                    <form hx-post="/api/packages/products/${packageId}/courses"
-                          hx-target="#productTableArea"
-                          hx-on::after-request="document.getElementById('addCourseOverlay').remove()">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">选择课程</label>
-                            <select name="course_id" class="w-full px-3 py-2.5 border rounded-lg text-sm">
-                                ${opts}
-                            </select>
-                        </div>
-                        <div class="flex justify-end gap-3">
-                            <button type="button" onclick="document.getElementById('addCourseOverlay').remove()"
-                                    class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">取消</button>
-                            <button type="submit"
-                                    class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">添加</button>
-                        </div>
-                    </form>
-                </div>`;
-            document.body.appendChild(overlay);
-        });
-}
-
-// 初始化：替换 htmx 加载为 JS 加载
-// 页面初始化
-document.addEventListener('DOMContentLoaded', function() {
-    loadCoursePicker();
-});
-
-// 提交前把 checkbox 拼成逗号字符串
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('productForm');
-    if (form) {
-        form.addEventListener('htmx:configRequest', function(evt) {
-            const checks = document.querySelectorAll('#courseSelectContainer input[name="included_courses"]:checked');
-            const ids = Array.from(checks).map(cb => cb.value);
-            const params = evt.detail.parameters;
-            if (params.hasOwnProperty('included_courses')) delete params['included_courses'];
-            if (ids.length > 0) params['included_courses'] = ids.join(',');
-        });
-    }
-});
-</script>
 
 {% endblock %}

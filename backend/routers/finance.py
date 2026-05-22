@@ -8,7 +8,7 @@ from fastapi import Request,  APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from backend.database import get_db
 from backend.models.models import FinanceIncome, FinanceExpense
 from pydantic import BaseModel
@@ -59,6 +59,10 @@ class ExpenseUpdate(BaseModel):
     remark: str = ""
 
 
+class VoidRequest(BaseModel):
+    reason: str = ""
+
+
 # ═══════════════════════════════════════════
 # HTMX HTML 片段 — 表格
 # ═══════════════════════════════════════════
@@ -68,18 +72,30 @@ def _build_income_table(rows: list) -> str:
         return '<div class="text-center py-8 text-gray-400">暂无收入记录</div>'
     trs = ""
     for r in rows:
-        trs += f"""<tr class="hover:bg-gray-50 border-b">
+        voided = getattr(r, 'voided', 0)
+        row_cls = "hover:bg-gray-50 border-b"
+        if voided:
+            row_cls += " opacity-50"
+        amount_html = f"+{'%.2f' % (r.amount or 0)}"
+        if voided:
+            amount_html += ' <span class="text-xs text-red-500 ml-1">已作废</span>'
+        if voided:
+            action_html = '<span class="text-gray-400 text-xs">已作废</span>'
+        else:
+            action_html = (f'<button class="text-blue-600 hover:text-blue-800 mr-2" '
+                          f'onclick="openEditIncome(\'{r.record_id}\')">编辑</button>'
+                          f'<button class="text-red-500 hover:text-red-700" '
+                          f'onclick="openVoidModal(\'{r.record_id}\', '
+                          f'\'/api/finance/income/{r.record_id}/void\')">作废</button>')
+        trs += f"""<tr class="{row_cls}">
             <td class="px-4 py-3 text-sm text-gray-500">{r.record_id}</td>
             <td class="px-4 py-3 text-sm">{r.income_date}</td>
             <td class="px-4 py-3 text-sm">{r.category or ''}</td>
-            <td class="px-4 py-3 text-sm font-medium text-green-600">+{'%.2f' % (r.amount or 0)}</td>
+            <td class="px-4 py-3 text-sm font-medium text-green-600">{amount_html}</td>
             <td class="px-4 py-3 text-sm">{r.source or ''}</td>
             <td class="px-4 py-3 text-sm">{r.payment_method or ''}</td>
             <td class="px-4 py-3 text-sm">{r.remark or ''}</td>
-            <td class="px-4 py-3 text-sm">
-                <button class="text-blue-600 hover:text-blue-800 mr-2" onclick="openEditIncome('{r.record_id}')">编辑</button>
-                <button class="text-red-500 hover:text-red-700" hx-delete="/api/finance/income/{r.record_id}" hx-target="#incomeTable" hx-confirm="确认删除？">删除</button>
-            </td>
+            <td class="px-4 py-3 text-sm">{action_html}</td>
         </tr>"""
     return f"""<table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
@@ -94,18 +110,30 @@ def _build_expense_table(rows: list) -> str:
         return '<div class="text-center py-8 text-gray-400">暂无支出记录</div>'
     trs = ""
     for r in rows:
-        trs += f"""<tr class="hover:bg-gray-50 border-b">
+        voided = getattr(r, 'voided', 0)
+        row_cls = "hover:bg-gray-50 border-b"
+        if voided:
+            row_cls += " opacity-50"
+        amount_html = f"-{'%.2f' % (r.amount or 0)}"
+        if voided:
+            amount_html += ' <span class="text-xs text-red-500 ml-1">已作废</span>'
+        if voided:
+            action_html = '<span class="text-gray-400 text-xs">已作废</span>'
+        else:
+            action_html = (f'<button class="text-blue-600 hover:text-blue-800 mr-2" '
+                          f'onclick="openEditExpense(\'{r.record_id}\')">编辑</button>'
+                          f'<button class="text-red-500 hover:text-red-700" '
+                          f'onclick="openVoidModal(\'{r.record_id}\', '
+                          f'\'/api/finance/expense/{r.record_id}/void\')">作废</button>')
+        trs += f"""<tr class="{row_cls}">
             <td class="px-4 py-3 text-sm text-gray-500">{r.record_id}</td>
             <td class="px-4 py-3 text-sm">{r.expense_date}</td>
             <td class="px-4 py-3 text-sm">{r.category or ''}</td>
-            <td class="px-4 py-3 text-sm font-medium text-red-600">-{'%.2f' % (r.amount or 0)}</td>
+            <td class="px-4 py-3 text-sm font-medium text-red-600">{amount_html}</td>
             <td class="px-4 py-3 text-sm">{r.payee or ''}</td>
             <td class="px-4 py-3 text-sm">{r.payment_method or ''}</td>
             <td class="px-4 py-3 text-sm">{r.remark or ''}</td>
-            <td class="px-4 py-3 text-sm">
-                <button class="text-blue-600 hover:text-blue-800 mr-2" onclick="openEditExpense('{r.record_id}')">编辑</button>
-                <button class="text-red-500 hover:text-red-700" hx-delete="/api/finance/expense/{r.record_id}" hx-target="#expenseTable" hx-confirm="确认删除？">删除</button>
-            </td>
+            <td class="px-4 py-3 text-sm">{action_html}</td>
         </tr>"""
     return f"""<table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
@@ -209,6 +237,7 @@ def income_table(year: int = 0, month: int = 0, page: int = 1,
         )
     if category:
         query = query.filter(FinanceIncome.category == category)
+    query = query.filter(FinanceIncome.voided == 0)
     total = query.count()
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
     page = max(1, min(page, total_pages))
@@ -239,6 +268,7 @@ def expense_table(year: int = 0, month: int = 0, page: int = 1,
         )
     if category:
         query = query.filter(FinanceExpense.category == category)
+    query = query.filter(FinanceExpense.voided == 0)
     total = query.count()
     total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
     page = max(1, min(page, total_pages))
@@ -254,17 +284,17 @@ def finance_summary(year: int = 0, month: int = 0, db: Session = Depends(get_db)
     end = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
 
     total_income = db.query(func.coalesce(func.sum(FinanceIncome.amount), 0)).filter(
-        FinanceIncome.income_date >= start, FinanceIncome.income_date < end).scalar()
+        FinanceIncome.income_date >= start, FinanceIncome.income_date < end, FinanceIncome.voided == 0).scalar()
     total_income = float(total_income)
 
     total_expense = db.query(func.coalesce(func.sum(FinanceExpense.amount), 0)).filter(
-        FinanceExpense.expense_date >= start, FinanceExpense.expense_date < end).scalar()
+        FinanceExpense.expense_date >= start, FinanceExpense.expense_date < end, FinanceExpense.voided == 0).scalar()
     total_expense = float(total_expense)
 
     income_count = db.query(FinanceIncome).filter(
-        FinanceIncome.income_date >= start, FinanceIncome.income_date < end).count()
+        FinanceIncome.income_date >= start, FinanceIncome.income_date < end, FinanceIncome.voided == 0).count()
     expense_count = db.query(FinanceExpense).filter(
-        FinanceExpense.expense_date >= start, FinanceExpense.expense_date < end).count()
+        FinanceExpense.expense_date >= start, FinanceExpense.expense_date < end, FinanceExpense.voided == 0).count()
 
     return _build_summary((total_income, total_expense), income_count, expense_count)
 
@@ -391,6 +421,58 @@ def delete_expense(record_id: str, request: Request, db: Session = Depends(get_d
     db.delete(r)
     db.commit()
     return {"success": True}
+
+
+@router.put("/income/{record_id}/void")
+def void_income(record_id: str, data: VoidRequest, request: Request, db: Session = Depends(get_db)):
+    """作废收入记录"""
+    r = db.query(FinanceIncome).filter(FinanceIncome.record_id == record_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="收入记录不存在")
+    if getattr(r, 'voided', 0):
+        raise HTTPException(status_code=400, detail="该记录已作废")
+    token = request.cookies.get("access_token", "")
+    operator = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            operator = payload.get("sub", "系统")
+        except Exception:
+            pass
+    r.voided = 1
+    r.void_reason = data.reason
+    r.void_time = datetime.now()
+    r.void_operator = operator
+    db.commit()
+    return {"success": True, "message": "收入记录已作废"}
+
+
+@router.put("/expense/{record_id}/void")
+def void_expense(record_id: str, data: VoidRequest, request: Request, db: Session = Depends(get_db)):
+    """作废支出记录"""
+    r = db.query(FinanceExpense).filter(FinanceExpense.record_id == record_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="支出记录不存在")
+    if getattr(r, 'voided', 0):
+        raise HTTPException(status_code=400, detail="该记录已作废")
+    token = request.cookies.get("access_token", "")
+    operator = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            operator = payload.get("sub", "系统")
+        except Exception:
+            pass
+    r.voided = 1
+    r.void_reason = data.reason
+    r.void_time = datetime.now()
+    r.void_operator = operator
+    db.commit()
+    return {"success": True, "message": "支出记录已作废"}
 
 
 # ═══════════════════════════════════════════

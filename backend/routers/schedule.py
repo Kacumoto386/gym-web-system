@@ -155,11 +155,11 @@ def calendar_html(
             day_cls += " opacity-60"
 
         cells_html += f'''<td class="p-0.5 align-top {day_cls}">
-            <div class="min-h-[60px] p-1 rounded cursor-pointer hover:bg-gray-50"
+            <div class="min-h-[80px] p-1.5 rounded cursor-pointer hover:bg-gray-50 transition-colors"
                  onclick="showDayDetail('{day_data["date"]}')">
-                <div class="text-xs font-medium {'text-blue-600' if is_today else 'text-gray-700'}">{d}</div>
-                <div class="text-xs text-gray-400">{status_dots}</div>
-                <div class="text-xs text-gray-500 mt-0.5">{f"{count}节" if count else ""}</div>
+                <div class="flex items-center justify-center w-10 h-10 mx-auto rounded-full text-base font-bold mb-1.5 {'bg-blue-600 text-white shadow-md' if is_today else 'bg-gray-100 text-gray-700'}">{d}</div>
+                <div class="text-xs leading-tight text-center">{status_dots}</div>
+                <div class="text-xs text-gray-400 mt-0.5 text-center">{f"{count}节" if count else ""}</div>
             </div>
         </td>'''
 
@@ -174,10 +174,10 @@ def calendar_html(
 
     html = f'''
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm" style="table-layout:fixed">
             <thead>
-                <tr class="bg-gray-50">
-                    {"".join(f'<th class="px-1 py-2 text-xs text-gray-500 font-medium text-center">{w}</th>' for w in weekdays)}
+                <tr class="bg-gray-50 border-b border-gray-100">
+                    {"".join(f'<th class="px-1 py-3 text-sm text-gray-500 font-semibold text-center tracking-wider">{w}</th>' for w in weekdays)}
                 </tr>
             </thead>
             <tbody>

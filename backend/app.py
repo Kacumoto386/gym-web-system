@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.7.0 — 上课记录手机号展示 + 时间校验
+V3.7.1 — 商品零售进销存增强
 """
 import os
 import sys
@@ -19,9 +19,9 @@ from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from backend.database import init_db, get_db
-from backend.models.models import Member, Staff, Checkin, Sale, Course, ClassRecord, Wristband
+from backend.models.models import Member
 from backend.routers.auth import get_current_user, User
 from backend.routers.operation_log import record_log
 from backend.routers.mcp_router import router as mcp_router
@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.7.0 — ConversationRuntime AI 对话",
-    version="3.7.0",
+    description="Web 版健身管理系统 V3.7.5 — 作废/红冲机制",
+    version="3.7.5",
 )
 
 # 模板
@@ -126,6 +126,44 @@ async def no_cache_middleware(request: Request, call_next):
 
 # ── 操作日志中间件 ──
 
+# 已知的非 ID 路径段（子资源/动作名，不应作为 resource_id）
+_KNOWN_ACTION_SEGMENTS = frozenset({
+    # product
+    "inbounds", "form-options", "low-stock", "profit-summary",
+    "adjust-stock", "sales", "batch",
+    # package
+    "products", "monthly-passes", "courses", "toggle-status",
+    # booking
+    "create", "update", "checkin", "cancel", "complete",
+    # commission
+    "tiers", "calculate", "staff-list", "list", "table",
+    # class_record
+    "evaluation", "coaches", "status-options",
+    # member
+    "photo", "search-json", "search",
+    # membership_card
+    "sell", "sold",
+    # course, mcp, chat, export, operation_log
+    "call-tool", "read-resource", "batch-execute", "set-permission",
+    "message", "stream", "clear",
+    "tables", "fields",
+    "settings", "assets", "summary",
+})
+
+# 资源名 → 中文名映射
+_RESOURCE_CN_MAP = {
+    "members": "会员", "staff": "员工", "courses": "课程",
+    "sales": "售课记录", "class-records": "上课记录", "checkins": "进场记录",
+    "wristbands": "手环", "body-measurements": "体测记录", "recharges": "充值记录",
+    "alerts": "到期提醒", "membership-cards": "会籍卡", "products": "商品",
+    "product-sales": "商品零售", "finance": "财务",
+    "commission": "提成管理", "booking": "预约管理",
+    "packages": "课程包", "export": "数据导出",
+    "mcp": "MCP 工具", "chat": "AI 对话",
+    "system": "系统设置",
+}
+
+
 @app.middleware("http")
 async def operation_log_middleware(request: Request, call_next):
     """自动记录所有写操作的日志"""
@@ -138,16 +176,9 @@ async def operation_log_middleware(request: Request, call_next):
     if path.startswith("/auth/") or path == "/api/health" or path.startswith("/api/logs") or path == "/favicon.ico":
         return await call_next(request)
 
-    # 提取资源名
-    path_part = path.lstrip("/api/").split("/")[0] if path.startswith("/api/") else ""
-    resource_map = {
-        "members": "会员", "staff": "员工", "courses": "课程",
-        "sales": "售课记录", "class-records": "上课记录", "checkins": "进场记录",
-        "wristbands": "手环", "body-measurements": "体测记录", "recharges": "充值记录",
-        "alerts": "到期提醒", "membership-cards": "会籍卡", "products": "商品",
-        "product-sales": "商品零售", "finance": "财务",
-    }
-    resource = resource_map.get(path_part, path_part or "未知")
+    # 提取资源名（⚠️ 必须用切片而非 lstrip，lstrip 会误删字符）
+    path_part = path[len("/api/"):].split("/")[0] if path.startswith("/api/") else ""
+    resource = _RESOURCE_CN_MAP.get(path_part, path_part or "未知")
 
     # 先处理请求
     response = await call_next(request)
@@ -169,9 +200,17 @@ async def operation_log_middleware(request: Request, call_next):
                     pass
             # IP
             ip = request.client.host if request.client else ""
-            # 资源ID（从路径末尾取）
+            # 资源ID：找到 path_part 后第一个非关键字段
             parts = path.rstrip("/").split("/")
-            resource_id = parts[-1] if parts and not parts[-1].startswith("api") else ""
+            resource_id = ""
+            found_resource = False
+            for seg in parts:
+                if seg == path_part:
+                    found_resource = True
+                    continue
+                if found_resource and seg not in _KNOWN_ACTION_SEGMENTS:
+                    resource_id = seg
+                    break
 
             action = {"POST": "create", "PUT": "update", "DELETE": "delete"}.get(method, "unknown")
             record_log(db, operator, action, resource, resource_id, f"{method} {path}")
@@ -335,53 +374,7 @@ def wristband_page(request: Request):
     )
 
 
-# ── 仪表盘统计 API ──
-
-@app.get("/api/dashboard/stats", response_class=HTMLResponse)
-def dashboard_stats(db: Session = Depends(get_db)):
-    today = date.today()
-    today_str = today.isoformat()
-
-    # 统计数字
-    total_members = db.query(Member).count()
-    active_members = db.query(Member).filter(Member.status.in_(["正常", "有效"])).count()
-    total_staff = db.query(Staff).filter(Staff.status == "在职").count()
-    today_checkins = db.query(Checkin).filter(Checkin.checkin_date == today).count()
-    total_courses = db.query(Course).filter(Course.status == "上架").count()
-    total_sales_month = db.query(Sale).filter(
-        Sale.sale_date >= today.replace(day=1)
-    ).count()
-    month_amount = db.query(Sale).filter(
-        Sale.sale_date >= today.replace(day=1)
-    ).with_entities(Sale.actual_amount).all()
-    month_revenue = sum(float(a[0] or 0) for a in month_amount)
-    today_classes = db.query(ClassRecord).filter(ClassRecord.class_date == today).count()
-    today_sales = db.query(Sale).filter(Sale.sale_date == today).count()
-
-    return f"""
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-            <div class="text-xs text-gray-400 uppercase tracking-wide">总会员</div>
-            <div class="text-3xl font-bold text-gray-800 mt-1">{total_members}</div>
-            <div class="text-xs text-green-600 mt-1">有效 {active_members} 人</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-            <div class="text-xs text-gray-400 uppercase tracking-wide">今日进场</div>
-            <div class="text-3xl font-bold text-blue-600 mt-1">{today_checkins}</div>
-            <div class="text-xs text-gray-500 mt-1">今日上课 {today_classes} 节</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-            <div class="text-xs text-gray-400 uppercase tracking-wide">本月售课</div>
-            <div class="text-3xl font-bold text-purple-600 mt-1">{total_sales_month}</div>
-            <div class="text-xs text-gray-500 mt-1">今日售课 {today_sales} 笔</div>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-            <div class="text-xs text-gray-400 uppercase tracking-wide">本月营收</div>
-            <div class="text-3xl font-bold text-green-600 mt-1">¥{month_revenue:,.0f}</div>
-            <div class="text-xs text-gray-500 mt-1">在岗员工 {total_staff} 人</div>
-        </div>
-    </div>
-    """
+# ── 仪表盘 API（已迁移至 backend/routers/dashboard.py）──
 
 
 @app.get("/recharges")
@@ -393,102 +386,7 @@ def recharges_page(request: Request):
     )
 
 
-# ── 首页今日预约课程签到 ──
 
-@app.get("/api/dashboard/today-bookings", response_class=HTMLResponse)
-def today_bookings_dashboard(db: Session = Depends(get_db)):
-    """首页今日预约课程签到区块"""
-    from backend.routers.booking import today_bookings_html
-    return today_bookings_html(db)
-
-
-# ── 首页今日进场记录 + 快速签到 ──
-
-@app.get("/api/dashboard/today-checkins", response_class=HTMLResponse)
-def today_checkins_dashboard(db: Session = Depends(get_db)):
-    """首页今日进场记录区块（最近10条 + 按方式统计）"""
-    today = date.today()
-
-    # 最近10条进场记录
-    checkins = db.query(Checkin).filter(
-        Checkin.checkin_date == today
-    ).order_by(Checkin.id.desc()).limit(10).all()
-
-    # 按核销方式统计
-    types_count = {}
-    total = 0
-    for c in checkins:
-        total += 1
-        ct = c.checkin_type or "核销"
-        types_count[ct] = types_count.get(ct, 0) + 1
-
-    # 查找会员详细数据
-    rows = ""
-    for c in checkins:
-        # 查找会员头像/等级
-        member = db.query(Member).filter(Member.member_id == c.member_id).first()
-        level = member.level if member else ""
-        phone = member.phone if member else ""
-
-        # 进场方式图标
-        ct = c.checkin_type or "核销"
-        icon = "✅" if ct == "核销" else "👋" if ct == "体验" else "🏷️" if ct == "刷卡" else "✅"
-
-        time_str = c.checkin_date.isoformat() if hasattr(c.checkin_date, 'isoformat') else str(c.checkin_date)
-        rows += f"""
-        <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-            <div class="flex items-center gap-3">
-                <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">{c.member_name[0] if c.member_name else '?'}</span>
-                <div>
-                    <span class="text-sm font-medium text-gray-800">{c.member_name}</span>
-                    <span class="text-xs text-gray-400 ml-2">{phone}</span>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="text-xs px-2 py-0.5 rounded-full {'bg-green-100 text-green-700' if ct == '核销' else 'bg-yellow-100 text-yellow-700' if ct == '体验' else 'bg-blue-100 text-blue-700'}">{icon} {ct}</span>
-            </div>
-        </div>"""
-
-    if not rows:
-        rows = '<div class="py-6 text-center text-gray-400 text-sm">今日暂无进场记录</div>'
-
-    # 统计卡片
-    total_checked = db.query(Checkin).filter(Checkin.checkin_date == today).count()
-    wristband_count = db.query(Checkin).filter(Checkin.checkin_date == today, Checkin.checkin_type == "刷卡").count()
-    experience_count = db.query(Checkin).filter(Checkin.checkin_date == today, Checkin.checkin_type == "体验").count()
-    normal_count = total_checked - wristband_count - experience_count
-
-    return f"""
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="text-base">📊</span>
-                <span class="text-sm font-medium text-gray-700">今日进场</span>
-                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{total_checked} 人</span>
-            </div>
-            <a href="/checkin" class="text-xs text-blue-600 hover:text-blue-800">管理进场 &rarr;</a>
-        </div>
-        <!-- 进场方式统计 -->
-        <div class="grid grid-cols-3 gap-1 px-4 py-2 bg-gray-50 border-b border-gray-100">
-            <div class="text-center">
-                <div class="text-lg font-bold text-gray-800">{normal_count}</div>
-                <div class="text-xs text-gray-400">核销入场</div>
-            </div>
-            <div class="text-center">
-                <div class="text-lg font-bold text-yellow-600">{wristband_count}</div>
-                <div class="text-xs text-gray-400">🏷️ 刷卡入场</div>
-            </div>
-            <div class="text-center">
-                <div class="text-lg font-bold text-green-600">{experience_count}</div>
-                <div class="text-xs text-gray-400">👋 无卡体验</div>
-            </div>
-        </div>
-        <!-- 进场记录列表 -->
-        <div class="px-4 py-1 max-h-64 overflow-y-auto">
-            {rows}
-        </div>
-    </div>
-    """
 
 
 @app.get("/body-measurements")
@@ -620,11 +518,11 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.7.0", "system_name": name}
+    return {"status": "ok", "version": "3.7.1", "system_name": name}
 
 
 # 路由注册
-from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value
+from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value, dashboard
 app.include_router(member.router)
 app.include_router(staff.router)
 app.include_router(course.router)
@@ -649,3 +547,4 @@ app.include_router(package.router)
 app.include_router(asset_value.router)
 app.include_router(mcp_router)
 app.include_router(chat_router)
+app.include_router(dashboard.router)

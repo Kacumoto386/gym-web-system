@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import Request,  APIRouter, Depends, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from datetime import date
+from datetime import date, datetime
 from backend.database import get_db
 from backend.models.models import Recharge, Member
 from backend.services.id_gen import generate_id
@@ -25,9 +25,17 @@ def _build_table(rows: list) -> str:
         return '<div class="text-center py-8 text-gray-400">暂无充值记录</div>'
     trs = ""
     for r in rows:
-        trs += f"""<tr class="hover:bg-gray-50 border-b">
+        voided = getattr(r, 'voided', 0)
+        tr_class = 'hover:bg-gray-50 border-b'
+        badge = ''
+        actions = f"""<button class="text-red-500 hover:text-red-700" onclick="openVoidModal('{r.recharge_id}', '/api/recharges/{r.recharge_id}/void')">作废</button>"""
+        if voided:
+            tr_class = 'hover:bg-gray-50 border-b opacity-50'
+            badge = ' <span class="inline-block bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded ml-1">已作废</span>'
+            actions = '<span class="text-gray-400 text-xs">已作废</span>'
+        trs += f"""<tr class="{tr_class}">
             <td class="px-4 py-3 text-sm text-gray-500">{r.recharge_id}</td>
-            <td class="px-4 py-3">{r.member_name or ''}</td>
+            <td class="px-4 py-3">{r.member_name or ''}{badge}</td>
             <td class="px-4 py-3 text-sm text-gray-500">{r.member_id}</td>
             <td class="px-4 py-3 text-sm">{r.recharge_date}</td>
             <td class="px-4 py-3 text-sm font-medium text-green-600">+{r.amount or 0}</td>
@@ -37,7 +45,7 @@ def _build_table(rows: list) -> str:
             <td class="px-4 py-3 text-sm">{r.recharge_type or ''}</td>
             <td class="px-4 py-3 text-sm">{r.operator_id or ''}</td>
             <td class="px-4 py-3 text-sm">
-                <button class="text-red-500 hover:text-red-700" hx-delete="/api/recharges/{r.recharge_id}" hx-target="#rechargeTable" hx-confirm="确认删除此充值记录？">删除</button>
+                {actions}
             </td>
         </tr>"""
     return f"""<table class="w-full bg-white rounded-lg shadow-sm">
@@ -50,7 +58,16 @@ def _build_table(rows: list) -> str:
 
 @router.get("/table", response_class=HTMLResponse)
 def recharge_table(member_id: str = "", db: Session = Depends(get_db)):
-    query = db.query(Recharge)
+    query = db.query(Recharge).filter(Recharge.voided == 0)
+    if member_id:
+        query = query.filter(Recharge.member_id == member_id)
+    return _build_table(query.order_by(Recharge.recharge_date.desc()).limit(100).all())
+
+
+@router.get("/voided/table", response_class=HTMLResponse)
+def voided_recharge_table(member_id: str = "", db: Session = Depends(get_db)):
+    """已作废充值记录表格"""
+    query = db.query(Recharge).filter(Recharge.voided == 1)
     if member_id:
         query = query.filter(Recharge.member_id == member_id)
     return _build_table(query.order_by(Recharge.recharge_date.desc()).limit(100).all())
@@ -71,6 +88,10 @@ class RechargeCreate(BaseModel):
     recharge_type: str = "普通充值"
     operator_id: str = ""
     remark: str = ""
+
+
+class VoidRequest(BaseModel):
+    reason: str = ""
 
 
 class RechargeOut(BaseModel):
@@ -162,3 +183,36 @@ def delete_recharge(recharge_id: str, request: Request, db: Session = Depends(ge
     db.commit()
 
     return {"success": True, "message": f"充值记录 {recharge_id} 已删除"}
+
+
+@router.put("/{recharge_id}/void")
+def void_recharge(recharge_id: str, data: VoidRequest, request: Request, db: Session = Depends(get_db)):
+    """作废充值记录（标记作废 + 反向扣减会员余额）"""
+    r = db.query(Recharge).filter(Recharge.recharge_id == recharge_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="充值记录不存在")
+    if getattr(r, 'voided', 0):
+        raise HTTPException(status_code=400, detail="该记录已作废")
+    # 反向扣减会员余额
+    member = db.query(Member).filter(Member.member_id == r.member_id).first()
+    if member:
+        total = (r.amount or 0) + (r.bonus or 0)
+        member.balance = max(0, (member.balance or 0) - total)
+        member.recharge_total = max(0, (member.recharge_total or 0) - total)
+    # 获取操作人
+    token = request.cookies.get("access_token", "")
+    operator = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            operator = payload.get("sub", "系统")
+        except Exception:
+            pass
+    r.voided = 1
+    r.void_reason = data.reason
+    r.void_time = datetime.now()
+    r.void_operator = operator
+    db.commit()
+    return {"success": True, "message": f"充值记录 {recharge_id} 已作废"}

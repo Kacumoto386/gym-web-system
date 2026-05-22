@@ -90,7 +90,22 @@ def _build_table(rows: list) -> str:
             ev_badge = '<span class="text-xs text-yellow-500 ml-1">👌</span>'
         elif ev == "差评":
             ev_badge = '<span class="text-xs text-red-500 ml-1">👎</span>'
-        trs += f"""<tr class="hover:bg-gray-50 border-b group" onclick="toggleDetail('{r.record_id}')">
+        is_voided = getattr(r, 'voided', 0)
+        row_class = "hover:bg-gray-50 border-b group"
+        void_badge = ""
+        actions_html = ""
+        if is_voided:
+            row_class += " opacity-50"
+            void_badge = '<span class="px-2 py-0.5 bg-gray-200 text-gray-500 rounded text-xs ml-1">已作废</span>'
+            actions_html = '<span class="text-gray-400 text-xs">已作废</span>'
+        else:
+            actions_html = f'''<div class="flex gap-1">
+                    <button class="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded hover:bg-blue-50"
+                            onclick="openEditRecord('{r.record_id}')">编辑</button>
+                    <button class="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50"
+                            onclick="openVoidModal('{r.record_id}', '/api/class-records/{r.record_id}/void')">作废</button>
+                </div>'''
+        trs += f"""<tr class="{row_class}" onclick="toggleDetail('{r.record_id}')">
             <td class="px-3 py-2.5 text-xs text-gray-500">{r.record_id}</td>
             <td class="px-3 py-2.5">{r.member_name or ''}</td>
             <td class="px-3 py-2.5 text-sm text-gray-500">{r.member_phone or ''}</td>
@@ -99,15 +114,9 @@ def _build_table(rows: list) -> str:
             <td class="px-3 py-2.5 text-sm">{r.class_date}</td>
             <td class="px-3 py-2.5 text-sm text-gray-500">{r.start_time or ''}~{r.end_time or ''}</td>
             <td class="px-3 py-2.5 text-sm">{r.consumed_hours or 0}</td>
-            <td class="px-3 py-2.5"><span class="px-2 py-0.5 {sc} rounded text-xs">{r.status or ''}</span>{ev_badge}</td>
+            <td class="px-3 py-2.5"><span class="px-2 py-0.5 {sc} rounded text-xs">{r.status or ''}</span>{ev_badge}{void_badge}</td>
             <td class="px-3 py-2.5 text-sm" onclick="event.stopPropagation()">
-                <div class="flex gap-1">
-                    <button class="text-blue-600 hover:text-blue-800 text-xs px-2 py-1 rounded hover:bg-blue-50"
-                            onclick="openEditRecord('{r.record_id}')">编辑</button>
-                    <button class="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50"
-                            hx-delete="/api/class-records/{r.record_id}" hx-target="#classRecordTable"
-                            hx-confirm="确认删除此上课记录？">删除</button>
-                </div>
+                {actions_html}
             </td>
         </tr>
         <tr class="hidden border-b bg-gray-50" id="detail-{r.record_id}">
@@ -139,7 +148,7 @@ def class_record_table(
     keyword: str = "",
     db: Session = Depends(get_db)
 ):
-    query = db.query(ClassRecord)
+    query = db.query(ClassRecord).filter(ClassRecord.voided == 0)
     if member_id:
         query = query.filter(ClassRecord.member_id == member_id)
     if class_date:
@@ -358,6 +367,36 @@ def update_class_record(record_id: str, data: ClassRecordUpdate, db: Session = D
     db.commit()
     db.refresh(record)
     return record
+
+
+class VoidRequest(BaseModel):
+    reason: str = ""
+
+
+@router.put("/{record_id}/void")
+def void_class_record(record_id: str, data: VoidRequest, request: Request, db: Session = Depends(get_db)):
+    """作废上课记录（标记作废，不删除）"""
+    record = db.query(ClassRecord).filter(ClassRecord.record_id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="上课记录不存在")
+    if getattr(record, 'voided', 0):
+        raise HTTPException(status_code=400, detail="该记录已作废")
+    token = request.cookies.get("access_token", "")
+    operator = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            operator = payload.get("sub", "系统")
+        except Exception:
+            pass
+    record.voided = 1
+    record.void_reason = data.reason
+    record.void_time = datetime.now()
+    record.void_operator = operator
+    db.commit()
+    return {"success": True, "message": f"上课记录 {record_id} 已作废"}
 
 
 @router.delete("/{record_id}")

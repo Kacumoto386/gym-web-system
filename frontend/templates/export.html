@@ -4,36 +4,85 @@
     <h2 class="text-xl font-semibold text-gray-800">📤 数据导出</h2>
 </div>
 
-<div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-    <p class="text-gray-500 text-sm mb-4">选择要导出的数据表，下载 CSV 格式文件（Excel 可直接打开）</p>
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <!-- 格式选择 -->
+    <div class="flex items-center gap-4 mb-5">
+        <span class="text-sm font-medium text-gray-700">导出格式：</span>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" name="exportFormat" value="csv" checked onchange="onFormatChange()"
+                   class="text-blue-600 focus:ring-blue-500">
+            <span class="text-sm text-gray-600">CSV</span>
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" name="exportFormat" value="xlsx" onchange="onFormatChange()"
+                   class="text-blue-600 focus:ring-blue-500">
+            <span class="text-sm text-gray-600">Excel (xlsx)</span>
+        </label>
+    </div>
 
-    <div id="tableList" class="grid grid-cols-2 md:grid-cols-3 gap-3" hx-get="/api/export/tables" hx-trigger="load" hx-swap="innerHTML">
-        <div class="text-center py-4 text-gray-400">加载中...</div>
+    <!-- 日期范围筛选 -->
+    <div class="flex flex-wrap items-center gap-3 mb-5 p-3 bg-gray-50 rounded-lg">
+        <span class="text-sm font-medium text-gray-700">📅 日期范围：</span>
+        <input type="date" id="filterDateFrom"
+               class="px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+        <span class="text-gray-400 text-sm">~</span>
+        <input type="date" id="filterDateTo"
+               class="px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-400">
+        <span class="text-xs text-gray-400 ml-1">仅对含日期的表生效</span>
+    </div>
+
+    <!-- 表选择 -->
+    <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">选择要导出的表：</span>
+            <div class="flex gap-2 text-xs">
+                <button onclick="toggleAllTables(true)" class="text-blue-600 hover:text-blue-800">全选</button>
+                <span class="text-gray-300">|</span>
+                <button onclick="toggleAllTables(false)" class="text-blue-600 hover:text-blue-800">取消全选</button>
+                <span class="text-gray-300 ml-2" id="selectedCount">已选 0 个</span>
+            </div>
+        </div>
+        <div id="tableGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+            <!-- Dynamic via JS -->
+        </div>
+    </div>
+
+    <!-- 字段选择（单表时展开） -->
+    <div id="fieldSection" class="hidden mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-700">📋 导出字段</span>
+                <span class="text-xs text-gray-400" id="fieldTableName"></span>
+            </div>
+            <div class="flex gap-2 text-xs">
+                <button onclick="toggleAllFields(true)" class="text-blue-600 hover:text-blue-800">全选</button>
+                <span class="text-gray-300">|</span>
+                <button onclick="toggleAllFields(false)" class="text-blue-600 hover:text-blue-800">取消全选</button>
+                <span class="text-gray-300 ml-2" id="fieldCount"></span>
+            </div>
+        </div>
+        <div id="fieldGrid" class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5">
+            <!-- Dynamic via JS -->
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-100">
+        <button onclick="downloadSelected()"
+                class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                id="btnDownloadSingle" disabled>
+            ⬇ 下载选中
+        </button>
+        <button onclick="batchDownload()"
+                class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                id="btnBatchDownload" disabled>
+            📦 打包下载（<span id="batchCount">0</span> 个表）
+        </button>
+        <span class="text-xs text-gray-400 ml-2">单表可自定义字段；多表自动打包为 ZIP</span>
     </div>
 </div>
 
-<script>
-// 用 HTMX 请求列表后转换，或者直接硬编码
-document.addEventListener('DOMContentLoaded', async function() {
-    try {
-        const res = await fetch('/api/export/tables');
-        const tables = await res.json();
-        const container = document.getElementById('tableList');
-        container.innerHTML = '';
-        for (const t of tables) {
-            const div = document.createElement('div');
-            div.className = 'bg-gray-50 rounded-lg p-4 border border-gray-100 hover:border-blue-300 transition flex items-center justify-between';
-            div.innerHTML = `
-                <span class="text-sm font-medium text-gray-700">${t.name}</span>
-                <a href="/api/export/${t.key}?format=csv" 
-                   class="text-blue-600 hover:text-blue-800 text-sm ml-2 whitespace-nowrap"
-                   download>⬇ 下载 CSV</a>
-            `;
-            container.appendChild(div);
-        }
-    } catch(e) {
-        document.getElementById('tableList').innerHTML = '<div class="text-center py-4 text-red-400">加载失败</div>';
-    }
-});
-</script>
+{% block page_js %}
+<script src="/static/js/export.js"></script>
+{% endblock %}
 {% endblock %}

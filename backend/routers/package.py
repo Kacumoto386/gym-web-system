@@ -533,3 +533,184 @@ def add_course_to_product(
         p.course_names = " / ".join(name_map.get(cid, cid) for cid in cids)
     db.commit()
     return _build_product_table(db.query(GroupPackage).order_by(GroupPackage.id.desc()).all())
+
+
+# ═══════════════════════════════════════════
+# Tab 3: 包月管理 (MonthlyPass CRUD)
+# ═══════════════════════════════════════════
+
+class MonthlyPassCreate(BaseModel):
+    member_id: str
+    member_name: str = ""
+    pass_name: str
+    pass_type: str = "group"
+    included_courses: str = ""
+    course_names: str = ""
+    price: float = 0
+    valid_from: str = ""
+    valid_until: str = ""
+    purchase_date: str = ""
+    status: str = "正常"
+    remark: str = ""
+
+
+def _build_monthly_pass_table(rows: list) -> str:
+    if not rows:
+        return '<div class="text-center py-8 text-gray-400">暂无包月记录</div>'
+    trs = ""
+    today = date.today()
+    for mp in rows:
+        type_tag = "🎫 包月团课" if mp.pass_type == "group" else "🎫 包月私教"
+        st_cls = "bg-green-100 text-green-700" if mp.status == "正常" else "bg-red-100 text-red-500"
+
+        expiry = ""
+        if mp.valid_until:
+            days = (mp.valid_until - today).days
+            if days < 0:
+                expiry = '<span class="text-red-500">已过期 {}天</span>'.format(abs(days))
+            elif days == 0:
+                expiry = '<span class="text-orange-500">今日到期</span>'
+            elif days <= 7:
+                expiry = '<span class="text-orange-500">剩{}天</span>'.format(days)
+            else:
+                expiry = '<span class="text-gray-500">剩{}天</span>'.format(days)
+
+        trs += (
+            '<tr class="hover:bg-gray-50 border-b">'
+            '<td class="px-4 py-3 text-sm text-gray-500">{}</td>'
+            '<td class="px-4 py-3">{}</td>'
+            '<td class="px-4 py-3 text-sm">{}</td>'
+            '<td class="px-4 py-3 text-sm">{}</td>'
+            '<td class="px-4 py-3 text-sm">{}</td>'
+            '<td class="px-4 py-3 text-sm">¥{:.2f}</td>'
+            '<td class="px-4 py-3 text-xs">{}<br>{}</td>'
+            '<td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs {}">{}</span></td>'
+            '<td class="px-4 py-3 text-sm">'
+            '<button class="text-blue-500 hover:text-blue-700 mr-2" onclick="openEditMonthlyPass(\'{}\')">编辑</button>'
+            '<button class="text-red-500 hover:text-red-700" hx-delete="/api/packages/monthly-passes/{}\'" hx-target="#monthlyPassTable" hx-confirm="确认删除包月记录？">删除</button>'
+            '</td>'
+            '</tr>'
+        ).format(
+            mp.pass_id,
+            mp.member_name or '',
+            mp.pass_name or '',
+            type_tag,
+            (mp.course_names or mp.pass_name or ''),
+            float(mp.price or 0),
+            (mp.valid_from.isoformat() if mp.valid_from else ''),
+            expiry,
+            st_cls, mp.status or '-',
+            mp.pass_id,
+            mp.pass_id,
+        )
+
+    return (
+        '<table class="w-full bg-white rounded-lg shadow-sm">'
+        '<thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">'
+        '<tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">会员</th><th class="px-4 py-3">名称</th>'
+        '<th class="px-4 py-3">类型</th><th class="px-4 py-3">课程</th><th class="px-4 py-3">售价</th>'
+        '<th class="px-4 py-3">有效期</th><th class="px-4 py-3">状态</th><th class="px-4 py-3">操作</th></tr>'
+        '</thead>'
+        '<tbody>{}</tbody>'
+        '</table>'
+    ).format(trs)
+
+
+@router.get("/monthly-passes/table", response_class=HTMLResponse)
+def monthly_pass_table(db: Session = Depends(get_db)):
+    rows = db.query(MonthlyPass).order_by(MonthlyPass.id.desc()).all()
+    return NoCacheResponse(_build_monthly_pass_table(rows))
+
+
+@router.get("/monthly-passes/{pass_id}")
+def get_monthly_pass(pass_id: str, db: Session = Depends(get_db)):
+    mp = db.query(MonthlyPass).filter(MonthlyPass.pass_id == pass_id).first()
+    if not mp:
+        raise HTTPException(404, "包月记录不存在")
+    return {
+        "pass_id": mp.pass_id,
+        "member_id": mp.member_id,
+        "member_name": mp.member_name,
+        "pass_name": mp.pass_name,
+        "pass_type": mp.pass_type,
+        "included_courses": mp.included_courses or "",
+        "course_names": mp.course_names or "",
+        "price": float(mp.price or 0),
+        "valid_from": mp.valid_from.isoformat() if mp.valid_from else "",
+        "valid_until": mp.valid_until.isoformat() if mp.valid_until else "",
+        "purchase_date": mp.purchase_date.isoformat() if mp.purchase_date else "",
+        "status": mp.status or "正常",
+        "remark": mp.remark or "",
+    }
+
+
+@router.post("/monthly-passes")
+def create_monthly_pass(data: MonthlyPassCreate, db: Session = Depends(get_db)):
+    pid = generate_id("MP", db, MonthlyPass.pass_id)
+
+    def _parse_date(s):
+        if s:
+            try:
+                return date.fromisoformat(s)
+            except (ValueError, TypeError):
+                pass
+        return None
+
+    mp = MonthlyPass(
+        pass_id=pid,
+        member_id=data.member_id or "",
+        member_name=data.member_name or "",
+        pass_name=data.pass_name,
+        pass_type=data.pass_type or "group",
+        included_courses=data.included_courses or "",
+        course_names=data.course_names or "",
+        price=data.price or 0,
+        valid_from=_parse_date(data.valid_from),
+        valid_until=_parse_date(data.valid_until),
+        purchase_date=_parse_date(data.purchase_date) or date.today(),
+        status=data.status or "正常",
+        remark=data.remark or "",
+    )
+    db.add(mp)
+    db.commit()
+    return {"success": True, "pass_id": pid, "message": "包月记录已创建"}
+
+
+@router.put("/monthly-passes/{pass_id}")
+def update_monthly_pass(pass_id: str, data: MonthlyPassCreate, db: Session = Depends(get_db)):
+    mp = db.query(MonthlyPass).filter(MonthlyPass.pass_id == pass_id).first()
+    if not mp:
+        raise HTTPException(404, "包月记录不存在")
+
+    def _parse_date(s):
+        if s:
+            try:
+                return date.fromisoformat(s)
+            except (ValueError, TypeError):
+                pass
+        return None
+
+    mp.member_id = data.member_id or ""
+    mp.member_name = data.member_name or ""
+    mp.pass_name = data.pass_name
+    mp.pass_type = data.pass_type or "group"
+    mp.included_courses = data.included_courses or ""
+    mp.course_names = data.course_names or ""
+    mp.price = data.price or 0
+    mp.valid_from = _parse_date(data.valid_from)
+    mp.valid_until = _parse_date(data.valid_until)
+    mp.purchase_date = _parse_date(data.purchase_date)
+    mp.status = data.status or "正常"
+    mp.remark = data.remark or ""
+    db.commit()
+    return {"success": True, "message": "包月记录已更新"}
+
+
+@router.delete("/monthly-passes/{pass_id}")
+def delete_monthly_pass(pass_id: str, db: Session = Depends(get_db)):
+    mp = db.query(MonthlyPass).filter(MonthlyPass.pass_id == pass_id).first()
+    if not mp:
+        raise HTTPException(404, "包月记录不存在")
+    db.delete(mp)
+    db.commit()
+    return {"success": True, "message": "包月记录已删除"}

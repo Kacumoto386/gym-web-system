@@ -132,6 +132,10 @@ class MembershipCard(Base):
     is_product = Column(Integer, default=0, comment="是否为卡产品模板(1=产品模板,0=已售卡)")
     consumed_amount = Column(DECIMAL(10, 2), default=0, comment="现金卡已扣减金额")
     card_name = Column(String(100), default="", comment="卡名称/套餐名称")
+    voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")
+    void_reason = Column(Text, default="", comment="作废原因")
+    void_time = Column(DateTime, nullable=True, comment="作废时间")
+    void_operator = Column(String(50), default="", comment="作废操作人")
 
     created_at = Column(DateTime, default=datetime.now)
 
@@ -176,6 +180,10 @@ class Recharge(Base):
     operator_id = Column(String(20), default="", comment="经办员工")
     remark = Column(Text, default="", comment="充值备注")
     store_id = Column(String(20), default="", comment="门店编号")
+    voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")
+    void_reason = Column(Text, default="", comment="作废原因")
+    void_time = Column(DateTime, nullable=True, comment="作废时间")
+    void_operator = Column(String(50), default="", comment="作废操作人")
 
     created_at = Column(DateTime, default=datetime.now)
 
@@ -242,6 +250,10 @@ class Sale(Base):
     balance_due = Column(DECIMAL(10, 2), default=0, comment="剩余尾款")
     operator = Column(String(50), default="", comment="操作员")
     store_id = Column(String(20), default="", comment="门店编号")
+    voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")
+    void_reason = Column(Text, default="", comment="作废原因")
+    void_time = Column(DateTime, nullable=True, comment="作废时间")
+    void_operator = Column(String(50), default="", comment="作废操作人")
 
     created_at = Column(DateTime, default=datetime.now)
 
@@ -299,6 +311,10 @@ class ClassRecord(Base):
     sign_in_time = Column(DateTime, nullable=True, comment="签到时间")
     store_id = Column(String(20), default="", comment="门店编号")
     checkin_record = Column(String(10), default="", comment="进场签到")
+    voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")
+    void_reason = Column(Text, default="", comment="作废原因")
+    void_time = Column(DateTime, nullable=True, comment="作废时间")
+    void_operator = Column(String(50), default="", comment="作废操作人")
 
     created_at = Column(DateTime, default=datetime.now)
 
@@ -408,6 +424,7 @@ class Product(Base):
     cost_price = Column(DECIMAL(10, 2), default=0, comment="进价")
     selling_price = Column(DECIMAL(10, 2), default=0, comment="售价")
     stock = Column(Integer, default=0, comment="库存数量")
+    min_stock = Column(Integer, default=0, comment="安全库存")
     unit = Column(String(10), default="个", comment="单位")
     supplier = Column(String(100), default="", comment="供应商")
     remark = Column(Text, default="", comment="备注")
@@ -430,12 +447,37 @@ class ProductSale(Base):
     quantity = Column(Integer, default=1, comment="数量")
     unit_price = Column(DECIMAL(10, 2), default=0, comment="单价")
     total_price = Column(DECIMAL(10, 2), default=0, comment="总价")
+    cost_price = Column(DECIMAL(10, 2), default=0, comment="成本价")
+    profit = Column(DECIMAL(10, 2), default=0, comment="利润")
     payment_method = Column(String(20), default="", comment="支付方式")
     operator = Column(String(50), default="", comment="操作员")
     remark = Column(Text, default="", comment="备注")
     store_id = Column(String(20), default="", comment="门店编号")
     wristband_id = Column(String(20), default="", comment="手环编号")
+    voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")
+    void_reason = Column(Text, default="", comment="作废原因")
+    void_time = Column(DateTime, nullable=True, comment="作废时间")
+    void_operator = Column(String(50), default="", comment="作废操作人")
 
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class StockInbound(Base):
+    """进货入库记录"""
+    __tablename__ = "stock_inbound"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    inbound_id = Column(String(20), unique=True, nullable=False, comment="入库编号")
+    inbound_date = Column(Date, nullable=False, comment="入库日期")
+    product_id = Column(String(20), default="", comment="商品编号")
+    product_name = Column(String(100), default="", comment="商品名称")
+    quantity = Column(Integer, default=0, comment="入库数量")
+    unit_cost = Column(DECIMAL(10, 2), default=0, comment="进货单价")
+    total_cost = Column(DECIMAL(10, 2), default=0, comment="总成本")
+    supplier = Column(String(100), default="", comment="供应商")
+    operator = Column(String(50), default="", comment="操作员")
+    remark = Column(Text, default="", comment="备注")
+    store_id = Column(String(20), default="", comment="门店编号")
     created_at = Column(DateTime, default=datetime.now)
 
 
@@ -538,6 +580,10 @@ class FinanceIncome(Base):
     payment_method = Column(String(20), default="", comment="支付方式")
     remark = Column(Text, default="", comment="备注")
     store_id = Column(String(20), default="", comment="门店编号")
+    voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")
+    void_reason = Column(Text, default="", comment="作废原因")
+    void_time = Column(DateTime, nullable=True, comment="作废时间")
+    void_operator = Column(String(50), default="", comment="作废操作人")
 
     created_at = Column(DateTime, default=datetime.now)
 
@@ -555,6 +601,10 @@ class FinanceExpense(Base):
     payment_method = Column(String(20), default="", comment="支付方式")
     remark = Column(Text, default="", comment="备注")
     store_id = Column(String(20), default="", comment="门店编号")
+    voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")
+    void_reason = Column(Text, default="", comment="作废原因")
+    void_time = Column(DateTime, nullable=True, comment="作废时间")
+    void_operator = Column(String(50), default="", comment="作废操作人")
 
     created_at = Column(DateTime, default=datetime.now)
 
