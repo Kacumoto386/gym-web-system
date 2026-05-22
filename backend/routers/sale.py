@@ -122,7 +122,7 @@ def _build_table(rows: list, db: Session = None) -> str:
             '<td class="px-4 py-3 text-sm"><span class="px-2 py-0.5 {} rounded text-xs">{}</span></td>'
             '<td class="px-4 py-3 text-sm">{}</td>'
             '<td class="px-4 py-3 text-sm">'
-            '<button class="text-blue-600 hover:text-blue-800 mr-2" onclick="alert(\'编辑功能开发中\')">编辑</button>'
+            '<button class="text-blue-600 hover:text-blue-800 mr-2" onclick="openEditSale(\'{}\')">编辑</button>'
             '<button class="text-red-500 hover:text-red-700" '
             'hx-delete="/api/sales/{}" hx-target="#saleTable" '
             'hx-confirm="确认删除售课记录？">删除</button>'
@@ -139,7 +139,8 @@ def _build_table(rows: list, db: Session = None) -> str:
             s.payment_method or '',
             payment_cls, s.payment_status or '',
             s.sale_date,
-            s.sale_id,
+            s.sale_id,   # edit button
+            s.sale_id,   # delete button
         )
     return (
         '<table class="w-full bg-white rounded-lg shadow-sm">'
@@ -198,6 +199,38 @@ class SaleCreate(BaseModel):
     end_date: Optional[date] = None
 
 
+class SaleDetail(BaseModel):
+    id: int
+    sale_id: str
+    sale_date: date
+    member_id: str
+    member_name: str
+    member_phone: str
+    course_id: str
+    course_name: str
+    bought_hours: int
+    bonus_hours: int
+    total_hours: int
+    unit_price: float
+    discount: float
+    total_price: float
+    actual_amount: float
+    deposit: float
+    payment_method: str
+    payment_status: str
+    staff_id: str
+    staff_name: str
+    commission_rate: float
+    source: str
+    remark: str
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    store_id: str
+
+    class Config:
+        from_attributes = True
+
+
 class SaleOut(BaseModel):
     id: int
     sale_id: str
@@ -229,7 +262,7 @@ def list_sales(
     return query.order_by(Sale.id.desc()).offset(skip).limit(limit).all()
 
 
-@router.get("/{sale_id}", response_model=SaleOut)
+@router.get("/{sale_id}", response_model=SaleDetail)
 def get_sale(sale_id: str, db: Session = Depends(get_db)):
     sale = db.query(Sale).filter(Sale.sale_id == sale_id).first()
     if not sale:
@@ -269,8 +302,9 @@ def update_sale(sale_id: str, data: SaleCreate, db: Session = Depends(get_db)):
     if not sale:
         raise HTTPException(status_code=404, detail="售课记录不存在")
     for key, val in data.model_dump(exclude_unset=True).items():
-        if val is not None:
-            setattr(sale, key, val)
+        setattr(sale, key, val)
+    # 重算总课时
+    sale.total_hours = sale.bought_hours + sale.bonus_hours
     db.commit()
     db.refresh(sale)
     return sale

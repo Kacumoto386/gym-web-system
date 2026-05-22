@@ -113,6 +113,108 @@
     </div>
 </div>
 
+<!-- 编辑售课对话框 -->
+<div id="editModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">编辑售课</h3>
+            <button onclick="closeEditModal()"
+                    class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
+        <form id="editSaleForm">
+            <input type="hidden" id="editSaleId">
+            <div class="grid grid-cols-2 gap-3">
+                <!-- 会员 -->
+                <div class="relative">
+                    <label class="block text-sm text-gray-600 mb-1">选择会员</label>
+                    <input id="editSearchMember" type="text" placeholder="输入姓名/编号/电话搜索..."
+                           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                           oninput="filterEditMembers()" onfocus="showEditMemberDropdown()" onblur="hideEditMemberDropdown()">
+                    <div id="editMemberDropdown" class="absolute z-10 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto hidden">
+                    </div>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">会员信息</label>
+                        <div id="editMemberInfo" class="px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 min-h-[38px] flex items-center">未选择</div>
+                    </div>
+                    <button type="button" onclick="clearEditMember()"
+                            class="px-2 py-2 text-xs text-gray-400 border rounded-lg hover:bg-gray-50 mb-0">✕</button>
+                </div>
+                <input id="editFldMemberId" name="member_id" type="hidden">
+                <input id="editFldMemberName" name="member_name" type="hidden">
+                <input id="editFldMemberPhone" name="member_phone" type="hidden">
+
+                <!-- 课程 -->
+                <div class="relative">
+                    <label class="block text-sm text-gray-600 mb-1">选择课程</label>
+                    <input id="editSearchCourse" type="text" placeholder="输入名称/编号搜索..."
+                           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                           oninput="filterEditCourses()" onfocus="showEditCourseDropdown()" onblur="hideEditCourseDropdown()">
+                    <div id="editCourseDropdown" class="absolute z-10 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto hidden">
+                    </div>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">课程信息</label>
+                        <div id="editCourseInfo" class="px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 min-h-[38px] flex items-center">未选择</div>
+                    </div>
+                    <button type="button" onclick="clearEditCourse()"
+                            class="px-2 py-2 text-xs text-gray-400 border rounded-lg hover:bg-gray-50 mb-0">✕</button>
+                </div>
+                <input id="editFldCourseId" name="course_id" type="hidden">
+                <input id="editFldCourseName" name="course_name" type="hidden">
+                <input id="editFldUnitPrice" name="unit_price" type="hidden">
+
+                <!-- 数值 -->
+                <div><label class="block text-sm text-gray-600 mb-1">购买课时</label><input id="editBoughtHours" name="bought_hours" type="number" value="1" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">赠送课时</label><input id="editBonusHours" name="bonus_hours" type="number" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">实收金额 *</label><input id="editActualAmount" name="actual_amount" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">支付方式</label>
+                    <select id="editPaymentMethod" name="payment_method" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">请选择</option><option value="现金">现金</option><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="刷卡">刷卡</option><option value="转账">转账</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">支付状态</label>
+                    <select id="editPaymentStatus" name="payment_status" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="已付清">已付清</option><option value="部分支付">部分支付</option><option value="未付款">未付款</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm text-gray-600 mb-1">开卡日期</label><input id="editFldStartDate" name="start_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">到期日期</label><input id="editFldEndDate" name="end_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <!-- 销售人员 -->
+                <div class="relative">
+                    <label class="block text-sm text-gray-600 mb-1">选择销售人员</label>
+                    <input id="editSearchStaff" type="text" placeholder="输入姓名/编号搜索..."
+                           class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-transparent"
+                           oninput="filterEditStaff()" onfocus="showEditStaffDropdown()" onblur="hideEditStaffDropdown()">
+                    <div id="editStaffDropdown" class="absolute z-10 top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto hidden">
+                    </div>
+                </div>
+                <div class="flex items-end gap-2">
+                    <div class="flex-1">
+                        <label class="block text-sm text-gray-600 mb-1">员工信息</label>
+                        <div id="editStaffInfo" class="px-3 py-2 border rounded-lg text-sm bg-gray-50 text-gray-400 min-h-[38px] flex items-center">未选择</div>
+                    </div>
+                    <button type="button" onclick="clearEditStaff()"
+                            class="px-2 py-2 text-xs text-gray-400 border rounded-lg hover:bg-gray-50 mb-0">✕</button>
+                </div>
+                <input id="editFldStaffId" name="staff_id" type="hidden">
+                <input id="editFldStaffName" name="staff_name" type="hidden">
+            </div>
+            <div id="editFormError" class="text-red-500 text-sm mt-3 hidden"></div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button type="button" onclick="closeEditModal()"
+                        class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
+                <button type="button" onclick="submitEditSale()"
+                        class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存修改</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════
 // 缓存数据
@@ -440,6 +542,378 @@ function submitSale() {
 
 function showError(msg) {
     const el = document.getElementById('formError');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+}
+</script>
+
+<script>
+// ═══════════════════════════════════════
+// 编辑售课
+// ═══════════════════════════════════════
+
+let currentEditSaleId = null;
+let editMemberSelected = null;
+let editCourseSelected = null;
+let editStaffSelected = null;
+let editCoursesCache = [];
+let editStaffCache = [];
+let editMemberSearchTimer = null;
+
+function openEditSale(saleId) {
+    currentEditSaleId = saleId;
+    clearEditForm();
+
+    fetch('/api/sales/' + saleId)
+        .then(function(r) {
+            if (!r.ok) throw new Error('获取售课记录失败');
+            return r.json();
+        })
+        .then(function(data) {
+            // 会员
+            editMemberSelected = { id: data.member_id, name: data.member_name, phone: data.member_phone };
+            document.getElementById('editFldMemberId').value = data.member_id || '';
+            document.getElementById('editFldMemberName').value = data.member_name || '';
+            document.getElementById('editFldMemberPhone').value = data.member_phone || '';
+            document.getElementById('editMemberInfo').innerHTML = data.member_name
+                ? '<span class="text-gray-700">' + data.member_name + '</span><span class="text-gray-400 text-xs ml-2">' + (data.member_id || '') + ' · ' + (data.member_phone || '') + '</span>'
+                : '<span class="text-gray-400">未选择</span>';
+            document.getElementById('editSearchMember').value = data.member_name || '';
+
+            // 课程
+            editCourseSelected = { id: data.course_id, name: data.course_name, price: data.unit_price };
+            document.getElementById('editFldCourseId').value = data.course_id || '';
+            document.getElementById('editFldCourseName').value = data.course_name || '';
+            document.getElementById('editFldUnitPrice').value = data.unit_price || 0;
+            document.getElementById('editCourseInfo').innerHTML = data.course_name
+                ? '<span class="text-gray-700">' + data.course_name + '</span><span class="text-gray-400 text-xs ml-2">' + (data.course_id || '') + ' · ¥' + (data.unit_price || 0) + '</span>'
+                : '<span class="text-gray-400">未选择</span>';
+            document.getElementById('editSearchCourse').value = data.course_name || '';
+
+            // 数值字段
+            document.getElementById('editBoughtHours').value = data.bought_hours || 0;
+            document.getElementById('editBonusHours').value = data.bonus_hours || 0;
+            document.getElementById('editActualAmount').value = data.actual_amount || 0;
+
+            // 下拉选择
+            document.getElementById('editPaymentMethod').value = data.payment_method || '';
+            document.getElementById('editPaymentStatus').value = data.payment_status || '已付清';
+
+            // 日期
+            document.getElementById('editFldStartDate').value = data.start_date || '';
+            document.getElementById('editFldEndDate').value = data.end_date || '';
+
+            // 员工
+            editStaffSelected = { id: data.staff_id, name: data.staff_name };
+            document.getElementById('editFldStaffId').value = data.staff_id || '';
+            document.getElementById('editFldStaffName').value = data.staff_name || '';
+            document.getElementById('editStaffInfo').innerHTML = data.staff_name
+                ? '<span class="text-gray-700">' + data.staff_name + '</span><span class="text-gray-400 text-xs ml-2">' + (data.staff_id || '') + '</span>'
+                : '<span class="text-gray-400">未选择</span>';
+            document.getElementById('editSearchStaff').value = data.staff_name || '';
+
+            // 加载搜索缓存
+            loadEditMembers();
+            loadEditCourses();
+            loadEditStaff();
+
+            document.getElementById('editModal').classList.remove('hidden');
+        })
+        .catch(function(e) {
+            showEditError('加载售课记录失败: ' + e.message);
+        });
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').classList.add('hidden');
+    currentEditSaleId = null;
+    editMemberSelected = null;
+    editCourseSelected = null;
+    editStaffSelected = null;
+}
+
+function clearEditForm() {
+    editMemberSelected = null;
+    editCourseSelected = null;
+    editStaffSelected = null;
+    document.getElementById('editSearchMember').value = '';
+    document.getElementById('editSearchCourse').value = '';
+    document.getElementById('editSearchStaff').value = '';
+    document.getElementById('editMemberInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('editCourseInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('editStaffInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('editFldMemberId').value = '';
+    document.getElementById('editFldMemberName').value = '';
+    document.getElementById('editFldMemberPhone').value = '';
+    document.getElementById('editFldCourseId').value = '';
+    document.getElementById('editFldCourseName').value = '';
+    document.getElementById('editFldUnitPrice').value = '0';
+    document.getElementById('editFldStaffId').value = '';
+    document.getElementById('editFldStaffName').value = '';
+    document.getElementById('editFldStartDate').value = '';
+    document.getElementById('editFldEndDate').value = '';
+    document.getElementById('editFormError').classList.add('hidden');
+    hideEditMemberDropdown();
+    hideEditCourseDropdown();
+    hideEditStaffDropdown();
+}
+
+function loadEditMembers() {
+    fetch('/api/members/search-json?q=')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { showEditMemberList(data || []); })
+        .catch(function() {});
+}
+
+function loadEditCourses() {
+    fetch('/api/courses/search-json?q=')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { editCoursesCache = data || []; filterEditCourses(); })
+        .catch(function() {});
+}
+
+function loadEditStaff() {
+    fetch('/api/staff/search-json?q=')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { editStaffCache = data || []; filterEditStaff(); })
+        .catch(function() {});
+}
+
+// 会员搜索
+function showEditMemberList(members) {
+    var dd = document.getElementById('editMemberDropdown');
+    if (!members || members.length === 0) {
+        dd.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到匹配会员</div>';
+    } else {
+        dd.innerHTML = members.map(function(m) {
+            return '<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between"'
+                + ' onmousedown="selectEditMember(\'' + m.member_id + '\', \'' + (m.name || '').replace(/'/g, "\\'") + '\', \'' + (m.phone || '').replace(/'/g, "\\'") + '\', this)">'
+                + '<span>' + (m.name || '-') + '</span>'
+                + '<span class="text-gray-400 text-xs ml-2">' + (m.member_id || '') + (m.phone ? ' · ' + m.phone : '') + '</span>'
+                + '</div>';
+        }).join('');
+    }
+    dd.classList.remove('hidden');
+}
+
+function filterEditMembers() {
+    var q = document.getElementById('editSearchMember').value.trim();
+    clearTimeout(editMemberSearchTimer);
+    if (!q) {
+        fetch('/api/members/search-json?q=')
+            .then(function(r) { return r.json(); })
+            .then(function(data) { showEditMemberList(data || []); })
+            .catch(function() {});
+        return;
+    }
+    editMemberSearchTimer = setTimeout(function() {
+        fetch('/api/members/search-json?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.json(); })
+            .then(function(data) { showEditMemberList(data || []); })
+            .catch(function() {});
+    }, 200);
+}
+
+function showEditMemberDropdown() {
+    var dd = document.getElementById('editMemberDropdown');
+    if (!dd.classList.contains('hidden')) return;
+    filterEditMembers();
+    dd.classList.remove('hidden');
+}
+
+function hideEditMemberDropdown() {
+    setTimeout(function() { document.getElementById('editMemberDropdown').classList.add('hidden'); }, 200);
+}
+
+function selectEditMember(id, name, phone, el) {
+    editMemberSelected = { id: id, name: name, phone: phone };
+    document.getElementById('editFldMemberId').value = id;
+    document.getElementById('editFldMemberName').value = name;
+    document.getElementById('editFldMemberPhone').value = phone;
+    document.getElementById('editMemberInfo').innerHTML =
+        '<span class="text-gray-700">' + name + '</span><span class="text-gray-400 text-xs ml-2">' + id + ' · ' + phone + '</span>';
+    document.getElementById('editSearchMember').value = name;
+    document.getElementById('editMemberDropdown').classList.add('hidden');
+}
+
+function clearEditMember() {
+    editMemberSelected = null;
+    document.getElementById('editFldMemberId').value = '';
+    document.getElementById('editFldMemberName').value = '';
+    document.getElementById('editFldMemberPhone').value = '';
+    document.getElementById('editMemberInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('editSearchMember').value = '';
+    filterEditMembers();
+}
+
+// 课程搜索
+function filterEditCourses() {
+    var q = document.getElementById('editSearchCourse').value.trim().toLowerCase();
+    var list = q
+        ? editCoursesCache.filter(function(c) { return (c.name || '').toLowerCase().includes(q) || (c.course_id || '').toLowerCase().includes(q); })
+        : editCoursesCache;
+    var dd = document.getElementById('editCourseDropdown');
+    if (list.length === 0) {
+        dd.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到匹配课程</div>';
+    } else {
+        dd.innerHTML = list.map(function(c) {
+            return '<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between"'
+                + ' onmousedown="selectEditCourse(\'' + c.course_id + '\', \'' + (c.name || '').replace(/'/g, "\\'") + '\', ' + (c.standard_price || 0) + ', ' + (c.valid_days || 0) + ', this)">'
+                + '<span>' + (c.name || '-') + '</span>'
+                + '<span class="text-gray-400 text-xs ml-2">' + (c.course_type || '') + ' · ¥' + (c.standard_price || 0) + (c.valid_days ? ' · ' + c.valid_days + '天' : '') + '</span>'
+                + '</div>';
+        }).join('');
+    }
+    dd.classList.remove('hidden');
+}
+
+function showEditCourseDropdown() {
+    var dd = document.getElementById('editCourseDropdown');
+    if (!dd.classList.contains('hidden')) return;
+    filterEditCourses();
+    dd.classList.remove('hidden');
+}
+
+function hideEditCourseDropdown() {
+    setTimeout(function() { document.getElementById('editCourseDropdown').classList.add('hidden'); }, 200);
+}
+
+function selectEditCourse(id, name, price, validDays, el) {
+    editCourseSelected = { id: id, name: name, price: price, validDays: validDays };
+    document.getElementById('editFldCourseId').value = id;
+    document.getElementById('editFldCourseName').value = name;
+    document.getElementById('editFldUnitPrice').value = price;
+    document.getElementById('editCourseInfo').innerHTML =
+        '<span class="text-gray-700">' + name + '</span><span class="text-gray-400 text-xs ml-2">' + id + ' · ¥' + price + '</span>';
+    document.getElementById('editSearchCourse').value = name;
+    document.getElementById('editCourseDropdown').classList.add('hidden');
+    if (validDays > 0) {
+        var startVal = document.getElementById('editFldStartDate').value;
+        if (startVal) {
+            var d = new Date(startVal);
+            d.setDate(d.getDate() + validDays);
+            document.getElementById('editFldEndDate').value = d.toISOString().split('T')[0];
+        }
+    }
+}
+
+function clearEditCourse() {
+    editCourseSelected = null;
+    document.getElementById('editFldCourseId').value = '';
+    document.getElementById('editFldCourseName').value = '';
+    document.getElementById('editFldUnitPrice').value = '0';
+    document.getElementById('editCourseInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('editSearchCourse').value = '';
+    filterEditCourses();
+}
+
+// 员工搜索
+function filterEditStaff() {
+    var q = document.getElementById('editSearchStaff').value.trim().toLowerCase();
+    var list = q
+        ? editStaffCache.filter(function(s) { return (s.name || '').toLowerCase().includes(q) || (s.staff_id || '').toLowerCase().includes(q) || (s.phone || '').includes(q); })
+        : editStaffCache;
+    var dd = document.getElementById('editStaffDropdown');
+    if (list.length === 0) {
+        dd.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到匹配员工</div>';
+    } else {
+        dd.innerHTML = list.map(function(s) {
+            return '<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between"'
+                + ' onmousedown="selectEditStaff(\'' + s.staff_id + '\', \'' + (s.name || '').replace(/'/g, "\\'") + '\', \'' + (s.position || '').replace(/'/g, "\\'") + '\', this)">'
+                + '<span>' + (s.name || '-') + '</span>'
+                + '<span class="text-gray-400 text-xs ml-2">' + (s.staff_id || '') + ' · ' + (s.position || '') + '</span>'
+                + '</div>';
+        }).join('');
+    }
+    dd.classList.remove('hidden');
+}
+
+function showEditStaffDropdown() {
+    var dd = document.getElementById('editStaffDropdown');
+    if (!dd.classList.contains('hidden')) return;
+    filterEditStaff();
+    dd.classList.remove('hidden');
+}
+
+function hideEditStaffDropdown() {
+    setTimeout(function() { document.getElementById('editStaffDropdown').classList.add('hidden'); }, 200);
+}
+
+function selectEditStaff(id, name, position, el) {
+    editStaffSelected = { id: id, name: name, position: position };
+    document.getElementById('editFldStaffId').value = id;
+    document.getElementById('editFldStaffName').value = name;
+    document.getElementById('editStaffInfo').innerHTML =
+        '<span class="text-gray-700">' + name + '</span><span class="text-gray-400 text-xs ml-2">' + id + ' · ' + position + '</span>';
+    document.getElementById('editSearchStaff').value = name;
+    document.getElementById('editStaffDropdown').classList.add('hidden');
+}
+
+function clearEditStaff() {
+    editStaffSelected = null;
+    document.getElementById('editFldStaffId').value = '';
+    document.getElementById('editFldStaffName').value = '';
+    document.getElementById('editStaffInfo').innerHTML = '<span class="text-gray-400">未选择</span>';
+    document.getElementById('editSearchStaff').value = '';
+    filterEditStaff();
+}
+
+// 提交编辑
+function submitEditSale() {
+    if (!currentEditSaleId) {
+        showEditError('未找到售课记录，请重新打开编辑窗口');
+        return;
+    }
+
+    var form = document.getElementById('editSaleForm');
+    var data = {};
+    var fields = form.querySelectorAll('input[name], select[name]');
+    fields.forEach(function(el) {
+        var name = el.getAttribute('name');
+        if (name) data[name] = el.value;
+    });
+
+    // 数字类型转换
+    data.bought_hours = parseInt(data.bought_hours) || 0;
+    data.bonus_hours = parseInt(data.bonus_hours) || 0;
+    data.actual_amount = parseFloat(data.actual_amount) || 0;
+    data.unit_price = parseFloat(data.unit_price) || 0;
+
+    // 日期空值转 null
+    Object.keys(data).forEach(function(k) {
+        if (data[k] === '' && (k.endsWith('_date') || k === 'start_date' || k === 'end_date')) {
+            data[k] = null;
+        }
+    });
+
+    var btn = form.querySelector('button[onclick="submitEditSale()"]');
+    if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+
+    fetch('/api/sales/' + currentEditSaleId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(function(r) {
+        if (r.ok) return r.json();
+        return r.json().then(function(e) { throw new Error(e.detail || '保存失败'); });
+    })
+    .then(function() {
+        closeEditModal();
+        var el = document.getElementById('saleTable');
+        el.innerHTML = '<div class="text-center py-8 text-gray-400">加载中...</div>';
+        htmx.ajax('GET', '/api/sales/table', {target: '#saleTable'});
+    })
+    .catch(function(e) {
+        showEditError('保存失败: ' + e.message);
+    })
+    .finally(function() {
+        if (btn) { btn.disabled = false; btn.textContent = '保存修改'; }
+    });
+}
+
+function showEditError(msg) {
+    var el = document.getElementById('editFormError');
     el.textContent = msg;
     el.classList.remove('hidden');
 }
