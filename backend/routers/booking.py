@@ -5,7 +5,6 @@ V3.2.1 - 完整的预约管理
 """
 from fastapi import APIRouter, Depends, Query, HTTPException, Form
 from fastapi.responses import HTMLResponse
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from datetime import date, datetime
 from backend.database import get_db
@@ -55,7 +54,7 @@ def get_member_courses(member_id: str = Query(""), db: Session = Depends(get_db)
     today = date.today()
     pkgs = db.query(LessonPackage).filter(
         LessonPackage.member_id == member_id,
-        LessonPackage.status == "正常",
+        LessonPackage.status.in_(["有效", "正常"]),
         LessonPackage.remaining_hours > 0,
     ).all()
 
@@ -64,9 +63,9 @@ def get_member_courses(member_id: str = Query(""), db: Session = Depends(get_db)
     for p in pkgs:
         course_ids = []
         if p.included_courses:
-            course_ids = [c.strip() for c in p.included_courses.split(",") if c.strip()]
-        elif p.course_id:
-            course_ids = [p.course_id]
+            course_ids.extend([c.strip() for c in p.included_courses.split(",") if c.strip()])
+        if p.course_id:
+            course_ids.extend([c.strip() for c in p.course_id.split(",") if c.strip()])
 
         for cid in course_ids:
             if cid not in course_map:
@@ -213,15 +212,20 @@ def booking_table(
     for b in bookings:
         badge = status_badges.get(b.status, b.status or "未知")
         actions = ""
+        detail_btn = f'<button onclick="viewBooking(\'{b.booking_id}\')" class="text-xs px-2 py-1 border border-gray-300 text-gray-600 rounded hover:bg-gray-50">详情</button>'
         if b.status == "已预约":
             actions = f"""
                 <button onclick="bookingCheckin('{b.booking_id}')" class="text-xs px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600">签到</button>
                 <button onclick="cancelBooking('{b.booking_id}')" class="text-xs px-2 py-1 bg-gray-200 text-gray-600 rounded hover:bg-gray-300">取消</button>
+                {detail_btn}
             """
         elif b.status == "已签到":
             actions = f"""
                 <button onclick="completeBooking('{b.booking_id}')" class="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600">完成</button>
+                {detail_btn}
             """
+        else:
+            actions = detail_btn
 
         rows += f"""
         <tr class="border-b border-gray-50 hover:bg-gray-50">
@@ -279,6 +283,9 @@ def create_booking(
     except (ValueError, TypeError):
         raise HTTPException(400, "预约日期格式错误")
 
+    if start_time and end_time and start_time >= end_time:
+        raise HTTPException(400, "结束时间必须晚于开始时间")
+
     # 冲突检测
     if coach_id and start_time:
         conflict = db.query(Booking).filter(
@@ -294,14 +301,24 @@ def create_booking(
     today = date.today()
     pkgs = db.query(LessonPackage).filter(
         LessonPackage.member_id == member_id,
-        LessonPackage.status == "正常",
+        LessonPackage.status.in_(["有效", "正常"]),
         LessonPackage.remaining_hours > 0,
-        or_(
-            LessonPackage.course_id == course_id,
-            LessonPackage.included_courses.contains(course_id),
-        ),
     ).all()
-    valid_pkgs = [p for p in pkgs if p.valid_until is None or p.valid_until >= today]
+
+    def _course_matches(pkg, target_course_id):
+        """判断课程包是否包含目标课程（支持逗号分隔的 course_id 和 included_courses）"""
+        ids = set()
+        if pkg.course_id:
+            ids.update(c.strip() for c in pkg.course_id.split(",") if c.strip())
+        if pkg.included_courses:
+            ids.update(c.strip() for c in pkg.included_courses.split(",") if c.strip())
+        return target_course_id in ids
+
+    valid_pkgs = [
+        p for p in pkgs
+        if (p.valid_until is None or p.valid_until >= today)
+        and _course_matches(p, course_id)
+    ]
     if not valid_pkgs:
         raise HTTPException(400, f"该会员未购买「{course_name}」或课程包已过期/无剩余课时")
 
@@ -457,6 +474,10 @@ def get_booking(booking_id: str, db: Session = Depends(get_db)):
         "coach_name": b.coach_name or "",
         "location": b.location or "",
         "status": b.status or "",
+        "sign_in_count": b.sign_in_count or 0,
+        "store_id": b.store_id or "",
+        "wristband_id": b.wristband_id or "",
+        "created_at": b.created_at.strftime("%Y-%m-%d %H:%M") if b.created_at else "",
     }
 
 

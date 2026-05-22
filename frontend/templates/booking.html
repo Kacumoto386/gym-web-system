@@ -105,6 +105,21 @@
     </div>
 </div>
 
+<!-- 预约详情模态框 -->
+<div id="viewBookingModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+     onclick="if(event.target===this)closeViewBooking()">
+    <div class="bg-white rounded-2xl shadow-xl w-[520px] max-h-[90vh] overflow-y-auto"
+         onclick="event.stopPropagation()">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-base font-semibold text-gray-800">预约详情</h3>
+            <button onclick="closeViewBooking()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+        <div class="px-6 py-4" id="viewBookingContent">
+            <div class="text-center py-8 text-gray-400 text-sm">加载中...</div>
+        </div>
+    </div>
+</div>
+
 <script>
 let coachesCache = [];
 let searchTimer = null;
@@ -272,6 +287,10 @@ function submitBooking() {
         showError('请填写必填项（日期、会员、课程）');
         return;
     }
+    if (startTime && endTime && startTime >= endTime) {
+        showError('结束时间必须晚于开始时间');
+        return;
+    }
     const formData = new URLSearchParams();
     formData.set('booking_date', date);
     formData.set('member_id', memberId);
@@ -364,6 +383,44 @@ function homeCheckinBooking(bookingId) {
             }
         })
         .catch(e => alert('请求失败: ' + e));
+}
+
+// ===== 查看详情 =====
+
+function viewBooking(bookingId) {
+    var modal = document.getElementById('viewBookingModal');
+    var content = document.getElementById('viewBookingContent');
+    content.innerHTML = '<div class="text-center py-8 text-gray-400 text-sm">加载中...</div>';
+    modal.classList.remove('hidden');
+
+    fetch('/api/booking/' + bookingId)
+        .then(r => r.json())
+        .then(function(d) {
+            content.innerHTML =
+                '<div class="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">' +
+                '  <div><span class="text-xs text-gray-400">预约编号</span><br><span class="text-gray-700">' + (d.booking_id || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">创建时间</span><br><span class="text-gray-700">' + (d.created_at || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">预约日期</span><br><span class="text-gray-700">' + (d.booking_date || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">时间范围</span><br><span class="text-gray-700">' + (d.start_time || '-') + ' ~ ' + (d.end_time || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">会员姓名</span><br><span class="text-gray-700">' + (d.member_name || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">会员电话</span><br><span class="text-gray-700">' + (d.member_phone || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">课程名称</span><br><span class="text-gray-700">' + (d.course_name || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">课程编号</span><br><span class="text-gray-700">' + (d.course_id || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">教练姓名</span><br><span class="text-gray-700">' + (d.coach_name || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">上课地点</span><br><span class="text-gray-700">' + (d.location || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">预约状态</span><br><span class="text-gray-700">' + (d.status || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">签到人数</span><br><span class="text-gray-700">' + (d.sign_in_count || 0) + ' 人</span></div>' +
+                '  <div><span class="text-xs text-gray-400">手环编号</span><br><span class="text-gray-700">' + (d.wristband_id || '-') + '</span></div>' +
+                '  <div><span class="text-xs text-gray-400">门店编号</span><br><span class="text-gray-700">' + (d.store_id || '-') + '</span></div>' +
+                '</div>';
+        })
+        .catch(function() {
+            content.innerHTML = '<div class="text-center py-8 text-red-400 text-sm">加载失败</div>';
+        });
+}
+
+function closeViewBooking() {
+    document.getElementById('viewBookingModal').classList.add('hidden');
 }
 
 // 初始化
