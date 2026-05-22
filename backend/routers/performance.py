@@ -44,7 +44,7 @@ def get_date_range(period: str, today: date = None):
 def calc_remaining_days(end_date_val):
     """计算剩余天数和状态"""
     if not end_date_val:
-        return (None, "未知", "")
+        return (None, "正常", "green")
     if isinstance(end_date_val, str):
         try:
             end_date_val = date.fromisoformat(end_date_val)
@@ -114,6 +114,118 @@ def build_table_html(headers: list, rows: list, table_id: str = "", sort_col: in
             </table>
         </div>
     </div>'''
+    return html
+
+
+# ══════════════════════════════════════════════════
+# 会籍卡分类映射
+# ══════════════════════════════════════════════════
+
+def classify_card(card_type):
+    """将卡类型按关键词归类到大分类"""
+    if not card_type:
+        return "其他"
+    ct = card_type.strip()
+    # 公用卡单独标记
+    if "公用" in ct:
+        return "公用卡"
+    # 年卡类：各种年卡/两年卡/三年卡/五年卡/终身卡/半年卡
+    if any(kw in ct for kw in ("年卡", "两年", "三年", "五年", "终身", "半年")):
+        return "年卡类"
+    # 季卡类
+    if "季卡" in ct:
+        return "季卡类"
+    # 月卡类
+    if "月卡" in ct:
+        return "月卡类"
+    # 次卡类：含次卡或纯数字+次（如 健游100次）
+    if "次卡" in ct or (ct.endswith("次") and any(c.isdigit() for c in ct)):
+        return "次卡类"
+    # 游泳班：游泳/泳班/亲子/少儿暑期
+    if any(kw in ct for kw in ("游泳", "泳班", "亲子", "少儿暑期")):
+        return "游泳班"
+    # 长训班
+    if "长训" in ct:
+        return "长训班类"
+    # 现金卡
+    if "现金" in ct:
+        return "现金卡类"
+    # 短期卡
+    if "期限" in ct:
+        return "短期卡类"
+    return "其他"
+
+
+def normalize_card_status(status):
+    """归一化状态值：'正常' → '有效'"""
+    if status == "正常":
+        return "有效"
+    return status or "未知"
+
+
+def build_trend_html(months: list) -> str:
+    """生成月度趋势柱状图 HTML"""
+    if not months:
+        return '<div class="text-center py-8 text-gray-400">暂无趋势数据</div>'
+    max_count = max(m["count"] for m in months) or 1
+    max_amount = max(m["amount"] for m in months) or 1
+    bars = ""
+    for m in months:
+        h_count = max(round(m["count"] / max_count * 100), 4) if m["count"] > 0 else 4
+        h_amount = max(round(m["amount"] / max_amount * 100), 4) if m["amount"] > 0 else 4
+        bars += f'''
+        <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="w-full flex flex-col items-center" style="height:100px">
+                <div class="w-5 bg-green-400 rounded-t" style="height:{h_amount}%" title="¥{m['amount']:,.0f}"></div>
+                <div class="w-5 bg-blue-400 rounded-t mt-0.5" style="height:{h_count}%" title="{m['count']}张"></div>
+            </div>
+            <span class="text-xs text-gray-500">{m["month"]}</span>
+        </div>'''
+    return f'''
+    <div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+        <div class="text-sm font-medium text-gray-700 mb-3">月度趋势 <span class="text-xs text-gray-400 font-normal">(绿=金额 蓝=张数)</span></div>
+        <div class="flex items-end gap-1 min-h-[120px]">{bars}</div>
+    </div>'''
+
+
+def build_category_html(items: list, title: str = "", category_filter: str = "") -> str:
+    """生成按分类聚合的卡片 HTML，支持展开子类型"""
+    html = f'<div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100"><div class="text-sm font-medium text-gray-700 mb-3">{title}</div><div class="space-y-2">'
+    for item in items:
+        pct = item.get("pct", 0)
+        cat = item.get("type", "未知")
+        count = item.get("count", 0)
+        amount = item.get("amount", "")
+        sub_types = item.get("sub_types", [])
+        html += f'''
+        <div>
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600">{cat}</span>
+                <div class="flex items-center gap-4">
+                    <span class="font-medium text-gray-800">{count}</span>
+                    <span class="text-gray-500 w-20 text-right">{amount}</span>
+                </div>
+            </div>
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-blue-500 rounded-full" style="width:{pct}%"></div>
+            </div>'''
+        # 如果指定了分类筛选，展开子类型
+        if sub_types and category_filter:
+            for st in sub_types:
+                st_pct = round(st["count"] / max(count, 1) * 100, 1)
+                html += f'''
+            <div class="ml-4 mt-1 flex items-center justify-between text-xs text-gray-400">
+                <span>{st["type"]}</span>
+                <div class="flex items-center gap-2">
+                    <span>{st["count"]}</span>
+                    <span class="w-16 text-right">{st["amount"]}</span>
+                    <div class="h-1 w-16 bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-blue-300 rounded-full" style="width:{st_pct}%"></div>
+                    </div>
+                </div>
+            </div>'''
+        html += '</div>'
+    html += '</div></div>'
     return html
 
 
@@ -207,7 +319,7 @@ def overview_cards(period: str = Query("本月"), db: Session = Depends(get_db))
 
 @router.get("/sales/stats")
 def sale_stats(period: str = Query("本月"), db: Session = Depends(get_db)):
-    """售课业绩统计卡片"""
+    """售课统计卡片（总额/笔数/课时/有效占比）"""
     start, end = get_date_range(period)
     query = db.query(Sale)
     if start and end:
@@ -216,25 +328,147 @@ def sale_stats(period: str = Query("本月"), db: Session = Depends(get_db)):
     sales = query.all()
     total_amount = sum(float(s.actual_amount or 0) for s in sales)
     total_count = len(sales)
-    days_span = (end - start).days + 1 if start and end else 365
-    daily_avg = round(total_amount / days_span, 0) if days_span > 0 else 0
+    total_hours = sum(s.bought_hours or 0 for s in sales)
 
-    # 到期状态统计
-    expired_amount = sum(float(s.actual_amount or 0) for s in sales if s.end_date and (s.end_date - date.today()).days < 0)
-    expiring_amount = sum(float(s.actual_amount or 0) for s in sales if s.end_date and 0 <= (s.end_date - date.today()).days <= 7)
+    # 有效：end_date > today 或 end_date 为空
+    today = date.today()
+    valid = sum(1 for s in sales if not s.end_date or s.end_date > today)
+    expired = total_count - valid
+    valid_ratio = round(valid / total_count * 100, 0) if total_count > 0 else 0
 
     cards = [
-        {"label": "售课总额", "value": f"¥{total_amount:,.0f}", "sub": f"{total_count} 笔", "color": "blue"},
-        {"label": "日均", "value": f"¥{daily_avg:,.0f}", "sub": "/日", "color": "green"},
-        {"label": "已过期金额", "value": f"¥{expired_amount:,.0f}", "sub": "课程已到期", "color": "red"},
-        {"label": "即将到期", "value": f"¥{expiring_amount:,.0f}", "sub": "7天内到期", "color": "orange"},
+        {"label": "售课总额", "value": f"¥{total_amount:,.0f}", "sub": f"¥{total_amount/total_count:,.0f}/笔" if total_count > 0 else "", "color": "blue"},
+        {"label": "售课笔数", "value": str(total_count), "sub": f"共 {total_hours} 课时", "color": "green"},
+        {"label": "售课时数", "value": str(total_hours), "sub": f"均价 ¥{total_amount/total_hours:,.0f}/时" if total_hours > 0 else "", "color": "purple"},
+        {"label": "有效占比", "value": f"{valid_ratio:.0f}%", "sub": f"有效 {valid} / 已过期 {expired}", "color": "green"},
     ]
     return HTMLResponse(content=build_stats_cards_html(cards))
 
 
-@router.get("/sales/table")
-def sale_table(period: str = Query("本月"), status_filter: str = Query("全部", alias="status"), db: Session = Depends(get_db)):
-    """售课表格（含到期状态）"""
+@router.get("/sales/by-course")
+def sale_by_course(period: str = Query("本月"), db: Session = Depends(get_db)):
+    """售课按课程分组统计"""
+    start, end = get_date_range(period)
+    query = db.query(Sale)
+    if start and end:
+        query = query.filter(Sale.sale_date >= start, Sale.sale_date <= end)
+
+    sales = query.all()
+    groups: dict = {}
+    for s in sales:
+        name = s.course_name or "未知课程"
+        if name not in groups:
+            groups[name] = {"count": 0, "amount": 0.0}
+        groups[name]["count"] += 1
+        groups[name]["amount"] += float(s.actual_amount or 0)
+
+    sorted_groups = sorted(groups.items(), key=lambda x: x[1]["amount"], reverse=True)
+    total_count = sum(v["count"] for _, v in sorted_groups)
+    items = []
+    for name, v in sorted_groups[:10]:  # top 10
+        pct = round(v["count"] / total_count * 100, 1) if total_count > 0 else 0
+        items.append({"type": name, "count": v["count"], "amount": f"¥{v['amount']:,.0f}", "pct": pct})
+
+    return HTMLResponse(content=build_card_section_html(items, "按课程分布"))
+
+
+@router.get("/sales/trend")
+def sale_trend(period: str = Query("本年"), db: Session = Depends(get_db)):
+    """售课月度趋势（柱状图）"""
+    start, end = get_date_range(period)
+    query = db.query(
+        func.strftime('%Y-%m', Sale.sale_date).label('month'),
+        func.count(Sale.id).label('count'),
+        func.sum(Sale.actual_amount).label('amount'),
+    )
+    if start and end:
+        query = query.filter(Sale.sale_date >= start, Sale.sale_date <= end)
+    rows = query.group_by('month').order_by('month').all()
+
+    months = []
+    for r in rows:
+        months.append({"month": r[0] or "未知", "count": r[1] or 0, "amount": float(r[2] or 0)})
+
+    return HTMLResponse(content=build_trend_html(months))
+
+
+@router.get("/sales/by-staff")
+def sale_by_staff(period: str = Query("本月"), db: Session = Depends(get_db)):
+    """售课按员工业绩排行"""
+    start, end = get_date_range(period)
+    query = db.query(Sale)
+    if start and end:
+        query = query.filter(Sale.sale_date >= start, Sale.sale_date <= end)
+
+    sales = query.all()
+    groups: dict = {}
+    for s in sales:
+        name = s.staff_name or "未分配"
+        if name not in groups:
+            groups[name] = {"count": 0, "amount": 0.0}
+        groups[name]["count"] += 1
+        groups[name]["amount"] += float(s.actual_amount or 0)
+
+    sorted_groups = sorted(groups.items(), key=lambda x: x[1]["amount"], reverse=True)
+
+    html = '<div class="bg-white rounded-xl shadow-sm p-5 border border-gray-100"><div class="text-sm font-medium text-gray-700 mb-3">员工业绩排行</div><div class="space-y-3">'
+    medals = ["text-yellow-500", "text-gray-400", "text-orange-600"]
+    for i, (name, v) in enumerate(sorted_groups):
+        rank = i + 1
+        rank_display = f'<span class="font-bold {medals[i] if i < 3 else "text-gray-300"}">{rank}</span>'
+        html += f'''
+        <div class="flex items-center gap-3">
+            {rank_display}
+            <div class="flex-1">
+                <div class="flex justify-between text-sm mb-0.5">
+                    <span class="text-gray-700">{name}</span>
+                    <span class="text-gray-500">¥{v["amount"]:,.0f} · {v["count"]}笔</span>
+                </div>
+                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-500 rounded-full" style="width:{min(v["amount"] / max(groups.values(), key=lambda x:x["amount"])["amount"] * 100, 100) if v["amount"] > 0 else 0}%"></div>
+                </div>
+            </div>
+        </div>'''
+    if not sorted_groups:
+        html += '<div class="text-center py-4 text-gray-400">暂无数据</div>'
+    html += '</div></div>'
+    return HTMLResponse(content=html)
+
+
+@router.get("/sales/payment-breakdown")
+def sale_payment_breakdown(period: str = Query("本月"), db: Session = Depends(get_db)):
+    """售课支付方式分布"""
+    start, end = get_date_range(period)
+    query = db.query(Sale.payment_method, func.count(Sale.id), func.sum(Sale.actual_amount))
+    if start and end:
+        query = query.filter(Sale.sale_date >= start, Sale.sale_date <= end)
+    rows = query.group_by(Sale.payment_method).all()
+
+    total_amount = sum(float(r[2] or 0) for r in rows)
+    html = '<div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100"><div class="text-sm font-medium text-gray-700 mb-2">支付方式</div><div class="flex flex-wrap gap-3">'
+    colors = ["bg-blue-100 text-blue-700", "bg-green-100 text-green-700", "bg-orange-100 text-orange-700", "bg-purple-100 text-purple-700", "bg-gray-100 text-gray-600"]
+    for i, r in enumerate(rows):
+        method = r[0] or "未知"
+        count = r[1] or 0
+        amount = float(r[2] or 0)
+        pct = round(amount / total_amount * 100, 0) if total_amount > 0 else 0
+        cls = colors[i % len(colors)]
+        html += f'<span class="px-3 py-1.5 rounded-lg text-sm {cls}">{method} ¥{amount:,.0f} ({count}笔 {pct:.0f}%)</span>'
+    if not rows:
+        html += '<span class="text-gray-400 text-sm">暂无数据</span>'
+    html += '</div></div>'
+    return HTMLResponse(content=html)
+
+
+@router.get("/sales/detail-table")
+def sale_detail_table(
+    period: str = Query("本月"),
+    status_filter: str = Query("全部", alias="status"),
+    course: str = Query(""),
+    staff: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    """售课明细表格（富化版，含销售员/付款方式/课时/单价）"""
     start, end = get_date_range(period)
     query = db.query(Sale)
     if start and end:
@@ -242,12 +476,17 @@ def sale_table(period: str = Query("本月"), status_filter: str = Query("全部
 
     sales = query.order_by(Sale.sale_date.desc()).all()
 
-    headers = ["编号", "会员", "课程", "售课日期", "金额", "到期日", "剩余天数", "状态"]
+    # 客户端筛选
+    if course:
+        sales = [s for s in sales if s.course_name and course in s.course_name]
+    if staff:
+        sales = [s for s in sales if s.staff_name == staff]
+
+    headers = ["编号", "会员", "课程", "售课日期", "金额", "课时", "销售员", "付款方式", "到期日", "剩余", "状态"]
     rows = []
     for s in sales:
         remaining, _status, _color = calc_remaining_days(s.end_date)
 
-        # 状态筛选
         if status_filter == "normal" and _status != "正常":
             continue
         if status_filter == "expiring" and _status != "即将到期":
@@ -267,12 +506,15 @@ def sale_table(period: str = Query("本月"), status_filter: str = Query("全部
             s.course_name or "",
             s.sale_date.isoformat() if s.sale_date else "",
             f"¥{float(s.actual_amount or 0):,.0f}",
+            str(s.bought_hours or ""),
+            s.staff_name or "--",
+            s.payment_method or "--",
             end_str,
             remaining_str,
             badge,
         ])
 
-    return HTMLResponse(content=build_table_html(headers, rows, table_id="saleTable"))
+    return HTMLResponse(content=build_table_html(headers, rows, table_id="saleDetailTable"))
 
 
 # ══════════════════════════════════════════════════
@@ -379,8 +621,8 @@ def package_table(
 # ══════════════════════════════════════════════════
 
 @router.get("/cards/stats")
-def card_stats(period: str = Query("全部"), db: Session = Depends(get_db)):
-    """会籍卡统计卡片"""
+def card_stats(period: str = Query("本年"), db: Session = Depends(get_db)):
+    """会籍卡统计卡片（零价卡分离 + 本期新增）"""
     start, end = get_date_range(period)
     query = db.query(MembershipCard)
     if start and end:
@@ -388,43 +630,117 @@ def card_stats(period: str = Query("全部"), db: Session = Depends(get_db)):
 
     cards_data = query.all()
     total = len(cards_data)
-    total_amount = sum(float(c.price or 0) for c in cards_data)
-    avg_price = round(total_amount / total, 0) if total > 0 else 0
-    active = sum(1 for c in cards_data if c.status == "有效")
+
+    # 零价卡分离
+    revenue_cards = [c for c in cards_data if float(c.price or 0) > 0]
+    zero_cards = [c for c in cards_data if float(c.price or 0) == 0]
+    revenue_amount = sum(float(c.price or 0) for c in revenue_cards)
+    zero_count = len(zero_cards)
+
+    avg_price = round(revenue_amount / len(revenue_cards), 0) if revenue_cards else 0
+    active = sum(1 for c in cards_data if normalize_card_status(c.status) == "有效")
     expired = total - active
 
+    # 本期新增（从 start 到今天）
+    if start:
+        new_query = db.query(func.count(MembershipCard.id)).filter(MembershipCard.start_date >= start)
+        if end:
+            new_query = new_query.filter(MembershipCard.start_date <= end)
+        new_count = new_query.scalar() or 0
+    else:
+        new_count = total
+
     cards = [
-        {"label": "总卡数", "value": str(total), "sub": f"有效 {active} 张", "color": "blue"},
-        {"label": "总金额", "value": f"¥{total_amount:,.0f}", "sub": f"均价 ¥{avg_price:,.0f}", "color": "green"},
-        {"label": "有效", "value": str(active), "sub": f"占比 {round(active/total*100,0) if total>0 else 0:.0f}%", "color": "green"},
-        {"label": "已过期", "value": str(expired), "sub": f"占比 {round(expired/total*100,0) if total>0 else 0:.0f}%", "color": "red"},
+        {"label": "总卡数", "value": str(total), "sub": f"有效 {active} / 已过期 {expired}", "color": "blue"},
+        {"label": "营收∑", "value": f"¥{revenue_amount:,.0f}", "sub": f"均价 ¥{avg_price:,.0f} （零价 {zero_count} 张不计）", "color": "green"},
+        {"label": "本期新增", "value": str(new_count), "sub": f"占总卡数 {round(new_count/total*100,0) if total>0 else 0:.0f}%", "color": "purple"},
+        {"label": "有效占比", "value": f"{round(active/total*100,0) if total>0 else 0:.0f}%", "sub": f"{active} / {total} 张", "color": "green"},
     ]
     return HTMLResponse(content=build_stats_cards_html(cards))
 
 
 @router.get("/cards/by-type")
-def card_by_type(period: str = Query("全部"), db: Session = Depends(get_db)):
-    """会籍卡按类型分组统计"""
+def card_by_type(period: str = Query("本年"), category: str = Query(""), db: Session = Depends(get_db)):
+    """会籍卡按大分类聚合统计，支持 ?category= 展开子类型"""
     start, end = get_date_range(period)
-    query = db.query(MembershipCard.card_type, func.count(MembershipCard.id), func.sum(MembershipCard.price))
+    query = db.query(MembershipCard)
     if start and end:
         query = query.filter(MembershipCard.start_date >= start, MembershipCard.start_date <= end)
-    rows = query.group_by(MembershipCard.card_type).all()
+    cards_data = query.all()
 
-    total_count = sum(r[1] or 0 for r in rows)
+    # 按分类聚合
+    cat_groups: dict = {}
+    for c in cards_data:
+        cat = classify_card(c.card_type)
+        if category and cat != category:
+            continue
+        if cat not in cat_groups:
+            cat_groups[cat] = {"count": 0, "amount": 0.0, "sub_types": {}}
+        cat_groups[cat]["count"] += 1
+        price = float(c.price or 0)
+        if price > 0:
+            cat_groups[cat]["amount"] += price
+        # 子类型统计
+        ct = c.card_type or "未知"
+        if ct not in cat_groups[cat]["sub_types"]:
+            cat_groups[cat]["sub_types"][ct] = {"count": 0, "amount": 0.0}
+        cat_groups[cat]["sub_types"][ct]["count"] += 1
+        if price > 0:
+            cat_groups[cat]["sub_types"][ct]["amount"] += price
+
+    # 排序：年卡类 > 季卡类 > 月卡类 > 次卡类 > 游泳班 > 长训班 > 少儿班 > 短期卡 > 其他
+    CAT_ORDER = ["年卡类", "季卡类", "月卡类", "次卡类", "游泳班", "长训班类", "现金卡类", "短期卡类", "公用卡", "其他"]
+    sorted_cats = sorted(cat_groups.items(), key=lambda x: CAT_ORDER.index(x[0]) if x[0] in CAT_ORDER else 99)
+
+    total_count = sum(v["count"] for _, v in sorted_cats)
     items = []
+    for cat, v in sorted_cats:
+        pct = round(v["count"] / total_count * 100, 1) if total_count > 0 else 0
+        amount_str = f"¥{v['amount']:,.0f}" if v['amount'] > 0 else ""
+        sub_list = []
+        if category:
+            sub_list = sorted(
+                [{"type": t, "count": sv["count"], "amount": f"¥{sv['amount']:,.0f}" if sv['amount'] > 0 else ""}
+                 for t, sv in v["sub_types"].items()],
+                key=lambda x: x["count"], reverse=True)
+        items.append({"type": cat, "count": v["count"], "amount": amount_str, "pct": pct, "sub_types": sub_list})
+
+    title = f"按分类分布{' - ' + category if category else ''}"
+    return HTMLResponse(content=build_category_html(items, title, category))
+
+
+@router.get("/cards/trend")
+def card_trend(period: str = Query("本年"), db: Session = Depends(get_db)):
+    """会籍卡月度趋势（柱状图）"""
+    start, end = get_date_range(period)
+    query = db.query(
+        func.strftime('%Y-%m', MembershipCard.start_date).label('month'),
+        func.count(MembershipCard.id).label('count'),
+        func.sum(MembershipCard.price).label('amount'),
+    )
+    if start and end:
+        query = query.filter(MembershipCard.start_date >= start, MembershipCard.start_date <= end)
+    rows = query.group_by('month').order_by('month').all()
+
+    months = []
     for r in rows:
-        count = r[1] or 0
-        amount = float(r[2] or 0)
-        pct = round(count / total_count * 100, 1) if total_count > 0 else 0
-        items.append({"type": r[0] or "未知", "count": count, "amount": f"¥{amount:,.0f}", "pct": pct})
+        months.append({
+            "month": r[0] or "未知",
+            "count": r[1] or 0,
+            "amount": float(r[2] or 0),
+        })
 
-    return HTMLResponse(content=build_card_section_html(items, "按卡类型分布"))
+    return HTMLResponse(content=build_trend_html(months))
 
 
-@router.get("/cards/table")
-def card_table(period: str = Query("全部"), db: Session = Depends(get_db)):
-    """会籍卡明细表格"""
+@router.get("/cards/detail-table")
+def card_detail_table(
+    period: str = Query("本年"),
+    category: str = Query(""),
+    hide_zero: bool = Query(False),
+    db: Session = Depends(get_db),
+):
+    """会籍卡明细表格（含分类/剩余天数，支持筛选）"""
     start, end = get_date_range(period)
     query = db.query(MembershipCard)
     if start and end:
@@ -432,23 +748,64 @@ def card_table(period: str = Query("全部"), db: Session = Depends(get_db)):
 
     cards_data = query.order_by(MembershipCard.start_date.desc().nullslast()).all()
 
-    headers = ["编号", "会员", "卡类型", "售价", "天数", "开始日", "截止日", "状态"]
+    # 筛选
+    if category:
+        cards_data = [c for c in cards_data if classify_card(c.card_type) == category]
+    if hide_zero:
+        cards_data = [c for c in cards_data if float(c.price or 0) > 0]
+
+    headers = ["编号", "会员", "分类", "卡类型", "售价", "内容", "开始日", "截止日", "剩余", "状态"]
     rows = []
     for c in cards_data:
-        color = "green" if c.status == "有效" else "red"
-        badge = status_badge_html(c.status or "未知", color)
+        cat = classify_card(c.card_type)
+        remaining, _status, _color = calc_remaining_days(c.end_date)
+        display_status = normalize_card_status(c.status or "未知")
+        _color = "green" if display_status == "有效" else "red" if display_status == "已过期" else "orange"
+        badge = status_badge_html(display_status, _color)
+
+        # 根据卡类型计算内容和剩余信息
+        price = float(c.price or 0)
+        consumed = float(c.consumed_amount or 0)
+        content_str = str(c.duration_days or "") + "天" if c.duration_days else ""
+        remaining_str = f"{remaining}天" if remaining is not None else "--"
+        if remaining is not None and remaining < 0:
+            remaining_str = f"超期{-remaining}天"
+
+        if cat == "次卡类":
+            total = c.total_classes or 0
+            bonus = c.bonus_classes or 0
+            total_with = total + bonus
+            if total_with > 0:
+                used_count = round(consumed / (price / total_with)) if price > 0 else 0
+                rem = max(total_with - used_count, 0)
+                content_str = f"{total}次" if not bonus else f"{total}+赠{bonus}次"
+                remaining_str = f"剩{rem}/{total_with}次"
+            else:
+                content_str = "0次"
+                remaining_str = "0次"
+        elif cat == "现金卡类":
+            face_val = float(c.face_value or 0)
+            balance = max(price - consumed, 0)
+            if face_val > 0:
+                content_str = f"面值¥{face_val:,.0f}"
+            else:
+                content_str = "储值卡"
+            remaining_str = f"余额¥{balance:,.0f}"
+
         rows.append([
             c.card_id or "",
             c.member_name or "",
+            cat,
             c.card_type or "",
-            f"¥{float(c.price or 0):,.0f}",
-            str(c.duration_days or ""),
+            f"¥{price:,.0f}",
+            content_str,
             c.start_date.isoformat() if c.start_date else "",
             c.end_date.isoformat() if c.end_date else "",
+            remaining_str,
             badge,
         ])
 
-    return HTMLResponse(content=build_table_html(headers, rows, table_id="cardTable"))
+    return HTMLResponse(content=build_table_html(headers, rows, table_id="cardDetailTable"))
 
 
 # ══════════════════════════════════════════════════

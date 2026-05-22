@@ -190,6 +190,8 @@ class SaleCreate(BaseModel):
     payment_status: str = "已付款"
     remark: Optional[str] = ""
     store_id: Optional[str] = ""
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
 
 class SaleOut(BaseModel):
@@ -249,6 +251,7 @@ def create_sale(request: Request, data: SaleCreate, db: Session = Depends(get_db
         commission_rate=data.commission_rate or 0,
         source=data.source or "", payment_status=data.payment_status or "已付款",
         remark=data.remark or "", store_id=data.store_id or "",
+        start_date=data.start_date, end_date=data.end_date,
     )
     db.add(sale)
     db.commit()

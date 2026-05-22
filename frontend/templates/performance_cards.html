@@ -1,42 +1,71 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex items-center justify-between mb-4">
-    <h2 class="text-xl font-semibold text-gray-800">🎫 会籍卡业绩</h2>
-    <select id="periodSelect"
-            class="px-3 py-2 border rounded-lg text-sm bg-white shadow-sm"
-            hx-get="/api/performance/cards/stats" hx-trigger="change"
-            hx-target="#statsCards" hx-params="period" name="period"
-            hx-get-types="/api/performance/cards/by-type" hx-target="#byType"
-            hx-get-table="/api/performance/cards/table" hx-target="#cardTable">
-        <option value="今日">今日</option>
-        <option value="本周">本周</option>
-        <option value="本月">本月</option>
-        <option value="上月">上月</option>
-        <option value="本年">本年</option>
-        <option value="全部" selected>全部</option>
-    </select>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">会籍卡业绩</h2>
+    <div class="flex flex-wrap items-center gap-3">
+        <select id="periodSelect"
+                class="px-3 py-2 border rounded-lg text-sm bg-white shadow-sm">
+            <option value="今日">今日</option>
+            <option value="本周">本周</option>
+            <option value="本月">本月</option>
+            <option value="上月">上月</option>
+            <option value="本年" selected>本年</option>
+            <option value="全部">全部</option>
+        </select>
+        <select id="categoryFilter"
+                class="px-3 py-2 border rounded-lg text-sm bg-white shadow-sm">
+            <option value="">全部分类</option>
+            <option value="年卡类">年卡类</option>
+            <option value="季卡类">季卡类</option>
+            <option value="月卡类">月卡类</option>
+            <option value="次卡类">次卡类</option>
+            <option value="游泳班">游泳班</option>
+            <option value="长训班类">长训班类</option>
+            <option value="现金卡类">现金卡类</option>
+            <option value="短期卡类">短期卡类</option>
+            <option value="公用卡">公用卡</option>
+        </select>
+        <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+            <input type="checkbox" id="hideZeroToggle" class="rounded border-gray-300">
+            隐藏零价卡
+        </label>
+    </div>
 </div>
 
-<div id="statsCards" hx-get="/api/performance/cards/stats?period=全部" hx-trigger="load">
+<div id="statsCards" hx-get="/api/performance/cards/stats?period=本年" hx-trigger="load">
     <div class="text-center py-8 text-gray-400">加载中...</div>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-    <div id="byType" hx-get="/api/performance/cards/by-type?period=全部" hx-trigger="load">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+    <div id="byType" hx-get="/api/performance/cards/by-type?period=本年" hx-trigger="load">
         <div class="text-center py-4 text-gray-400">加载中...</div>
     </div>
-    <div class="md:col-span-2" id="cardTable" hx-get="/api/performance/cards/table?period=全部" hx-trigger="load">
-        <div class="text-center py-8 text-gray-400">加载中...</div>
+    <div id="trendChart" hx-get="/api/performance/cards/trend?period=本年" hx-trigger="load">
+        <div class="text-center py-4 text-gray-400">加载中...</div>
     </div>
 </div>
 
+<div class="mt-4" id="cardTable" hx-get="/api/performance/cards/detail-table?period=本年" hx-trigger="load">
+    <div class="text-center py-8 text-gray-400">加载中...</div>
+</div>
+
 <script>
-// 联动时间筛选
-document.getElementById('periodSelect')?.addEventListener('change', function() {
-    const period = this.value;
+function refreshAll() {
+    const period = document.getElementById('periodSelect').value;
+    const category = document.getElementById('categoryFilter').value;
+    const hideZero = document.getElementById('hideZeroToggle').checked;
+
     htmx.ajax('GET', `/api/performance/cards/stats?period=${period}`, {target: '#statsCards'});
-    htmx.ajax('GET', `/api/performance/cards/by-type?period=${period}`, {target: '#byType'});
-    htmx.ajax('GET', `/api/performance/cards/table?period=${period}`, {target: '#cardTable'});
-});
+    htmx.ajax('GET', `/api/performance/cards/by-type?period=${period}&category=${category}`, {target: '#byType'});
+    htmx.ajax('GET', `/api/performance/cards/trend?period=${period}`, {target: '#trendChart'});
+
+    let tableUrl = `/api/performance/cards/detail-table?period=${period}&category=${category}`;
+    if (hideZero) tableUrl += '&hide_zero=1';
+    htmx.ajax('GET', tableUrl, {target: '#cardTable'});
+}
+
+document.getElementById('periodSelect').addEventListener('change', refreshAll);
+document.getElementById('categoryFilter').addEventListener('change', refreshAll);
+document.getElementById('hideZeroToggle').addEventListener('change', refreshAll);
 </script>
 {% endblock %}

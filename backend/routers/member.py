@@ -437,7 +437,7 @@ def member_search_json(q: str = Query(""), db: Session = Depends(get_db)):
             | Member.phone.contains(kw)
             | Member.member_id.contains(kw)
         )
-    members = query.order_by(Member.id.desc()).limit(10).all()
+    members = query.order_by(Member.id.desc()).limit(50).all()
     result = []
     for m in members:
         card_type = ""

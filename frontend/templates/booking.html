@@ -57,9 +57,19 @@
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">会员 *</label>
-                    <select id="addMember" class="w-full px-3 py-2 border rounded-lg text-sm" onchange="onMemberChange()">
-                        <option value="">-- 选择会员 --</option>
-                    </select>
+                    <div class="relative">
+                        <input id="memberSearchInput" type="text"
+                               class="w-full px-3 py-2 border rounded-lg text-sm"
+                               placeholder="输入手机号/姓名搜索..."
+                               autocomplete="off"
+                               oninput="searchMember(this.value)">
+                        <button type="button" id="clearMemberBtn" onclick="clearMemberSelection()"
+                                class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+                    </div>
+                    <div id="memberSearchResults" class="hidden mt-1 bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
+                    <input type="hidden" id="selectedMemberId" value="">
+                    <input type="hidden" id="selectedMemberName" value="">
+                    <input type="hidden" id="selectedMemberPhone" value="">
                 </div>
                 <div>
                     <label class="block text-xs text-gray-500 mb-1">开始时间</label>
@@ -96,37 +106,34 @@
 </div>
 
 <script>
-let membersCache = [];
-let coursesCache = [];
 let coachesCache = [];
+let searchTimer = null;
 
 // ===== 初始化 =====
 
 function init() {
-    loadMembers();
-    loadCourses();
     loadCoaches();
 }
 
-function loadMembers() {
-    fetch('/api/members/search-json?q=')
+function loadCoursesForMember(memberId) {
+    const sel = document.getElementById('addCourse');
+    sel.innerHTML = '<option value="">加载中...</option>';
+    fetch('/api/booking/member-courses?member_id=' + encodeURIComponent(memberId))
         .then(r => r.json())
         .then(data => {
-            membersCache = data || [];
-            const sel = document.getElementById('addMember');
-            sel.innerHTML = '<option value="">-- 选择会员 --</option>' +
-                membersCache.map(m => `<option value="${m.member_id}" data-name="${m.name || ''}" data-phone="${m.phone || ''}">${m.name || ''} (${m.phone || ''})</option>`).join('');
-        });
-}
-
-function loadCourses() {
-    fetch('/api/booking/courses')
-        .then(r => r.json())
-        .then(data => {
-            coursesCache = data || [];
-            const sel = document.getElementById('addCourse');
+            const courses = data.courses || [];
+            if (courses.length === 0) {
+                sel.innerHTML = '<option value="">该会员暂无已购课程</option>';
+                return;
+            }
             sel.innerHTML = '<option value="">-- 选择课程 --</option>' +
-                coursesCache.map(c => `<option value="${c.course_id}" data-name="${c.name || ''}">${c.name}</option>`).join('');
+                courses.map(function(c) {
+                    var label = c.expired ? c.course_name + ' (已过期)' : c.course_name + ' (剩余 ' + c.total_remaining + ' 课时)';
+                    return '<option value="' + c.course_id + '" data-name="' + c.course_name + '" data-expired="' + c.expired + '">' + label + '</option>';
+                }).join('');
+        })
+        .catch(function() {
+            sel.innerHTML = '<option value="">加载失败</option>';
         });
 }
 
@@ -141,7 +148,65 @@ function loadCoaches() {
         });
 }
 
-function onMemberChange() {}
+// ===== 会员搜索 =====
+
+function searchMember(keyword) {
+    clearTimeout(searchTimer);
+    var resultsEl = document.getElementById('memberSearchResults');
+    if (!keyword || keyword.trim().length < 1) {
+        resultsEl.classList.add('hidden');
+        return;
+    }
+    searchTimer = setTimeout(function() {
+        fetch('/api/members/search-json?q=' + encodeURIComponent(keyword.trim()))
+            .then(function(r) { return r.json(); })
+            .then(function(members) {
+                if (!members || members.length === 0) {
+                    resultsEl.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到会员</div>';
+                    resultsEl.classList.remove('hidden');
+                    return;
+                }
+                resultsEl.innerHTML = members.map(function(m) {
+                    return '<div class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50 flex justify-between items-center" onclick="selectBookingMember(\'' + m.member_id + '\',\'' + (m.name || '').replace(/'/g, "\\'") + '\',\'' + (m.phone || '').replace(/'/g, "\\'") + '\')">' +
+                        '<div><span class="font-medium">' + (m.name || '') + '</span><span class="text-gray-400 ml-2">' + (m.phone || '') + '</span></div>' +
+                        '<span class="text-xs text-gray-400">' + (m.member_id || '') + '</span>' +
+                    '</div>';
+                }).join('');
+                resultsEl.classList.remove('hidden');
+            });
+    }, 200);
+}
+
+function selectBookingMember(id, name, phone) {
+    document.getElementById('memberSearchInput').value = name + ' (' + phone + ')';
+    document.getElementById('memberSearchResults').classList.add('hidden');
+    document.getElementById('selectedMemberId').value = id;
+    document.getElementById('selectedMemberName').value = name;
+    document.getElementById('selectedMemberPhone').value = phone;
+    document.getElementById('clearMemberBtn').classList.remove('hidden');
+    onMemberChange();
+}
+
+function clearMemberSelection() {
+    document.getElementById('memberSearchInput').value = '';
+    document.getElementById('selectedMemberId').value = '';
+    document.getElementById('selectedMemberName').value = '';
+    document.getElementById('selectedMemberPhone').value = '';
+    document.getElementById('memberSearchResults').classList.add('hidden');
+    document.getElementById('clearMemberBtn').classList.add('hidden');
+    onMemberChange();
+}
+
+function onMemberChange() {
+    var memberId = document.getElementById('selectedMemberId').value;
+    var courseSel = document.getElementById('addCourse');
+    courseSel.value = '';
+    if (memberId) {
+        loadCoursesForMember(memberId);
+    } else {
+        courseSel.innerHTML = '<option value="">-- 请先选择会员 --</option>';
+    }
+}
 function onCourseChange() {}
 function onCoachChange() {}
 
@@ -174,9 +239,12 @@ function openAddBooking() {
     document.getElementById('addBookingModal').classList.remove('hidden');
     document.getElementById('addDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('addBookingError').classList.add('hidden');
+    // 重置会员搜索
+    clearMemberSelection();
+    document.getElementById('memberSearchInput').value = '';
+    // 重置课程下拉（等待选择会员）
+    document.getElementById('addCourse').innerHTML = '<option value="">-- 请先选择会员 --</option>';
     // 重新加载数据确保最新
-    loadMembers();
-    loadCourses();
     loadCoaches();
 }
 
@@ -186,10 +254,9 @@ function closeAddBooking() {
 
 function submitBooking() {
     const date = document.getElementById('addDate').value;
-    const memberSel = document.getElementById('addMember');
-    const memberId = memberSel.value;
-    const memberName = memberSel.options[memberSel.selectedIndex]?.dataset?.name || '';
-    const memberPhone = memberSel.options[memberSel.selectedIndex]?.dataset?.phone || '';
+    const memberId = document.getElementById('selectedMemberId').value;
+    const memberName = document.getElementById('selectedMemberName').value;
+    const memberPhone = document.getElementById('selectedMemberPhone').value;
     const startTime = document.getElementById('addStartTime').value;
     const endTime = document.getElementById('addEndTime').value;
     const courseSel = document.getElementById('addCourse');
@@ -205,7 +272,6 @@ function submitBooking() {
         showError('请填写必填项（日期、会员、课程）');
         return;
     }
-
     const formData = new URLSearchParams();
     formData.set('booking_date', date);
     formData.set('member_id', memberId);

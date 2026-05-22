@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="flex items-center justify-between mb-4">
-    <h2 class="text-xl font-semibold text-gray-800">💳 售课业绩</h2>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="text-xl font-semibold text-gray-800">售课业绩</h2>
     <select id="periodSelect"
             class="px-3 py-2 border rounded-lg text-sm bg-white shadow-sm">
         <option value="今日">今日</option>
@@ -17,38 +17,60 @@
     <div class="text-center py-8 text-gray-400">加载中...</div>
 </div>
 
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+    <div id="byCourse" hx-get="/api/performance/sales/by-course?period=本月" hx-trigger="load">
+        <div class="text-center py-4 text-gray-400">加载中...</div>
+    </div>
+    <div id="trendChart" hx-get="/api/performance/sales/trend?period=本年" hx-trigger="load">
+        <div class="text-center py-4 text-gray-400">加载中...</div>
+    </div>
+    <div id="byStaff" hx-get="/api/performance/sales/by-staff?period=本月" hx-trigger="load">
+        <div class="text-center py-4 text-gray-400">加载中...</div>
+    </div>
+</div>
+
+<div class="mt-4" id="paymentBreakdown" hx-get="/api/performance/sales/payment-breakdown?period=本月" hx-trigger="load">
+    <div class="text-center py-4 text-gray-400">加载中...</div>
+</div>
+
 <!-- 状态筛选 -->
-<div class="mb-4 flex gap-2">
+<div class="mt-4 mb-3 flex flex-wrap items-center gap-2">
+    <span class="text-xs text-gray-500 mr-1">到期状态：</span>
     <button class="status-filter px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white" data-status="all">全部</button>
     <button class="status-filter px-3 py-1.5 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300" data-status="normal">正常</button>
     <button class="status-filter px-3 py-1.5 text-sm rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200" data-status="expiring">即将到期</button>
     <button class="status-filter px-3 py-1.5 text-sm rounded-lg bg-red-100 text-red-700 hover:bg-red-200" data-status="expired">已过期</button>
-    <span class="text-xs text-gray-400 ml-auto self-center">点击表头可排序</span>
+    <span class="text-xs text-gray-400 ml-auto">点击表头可排序</span>
 </div>
 
-<div id="saleTable" hx-get="/api/performance/sales/table?period=本月&status=all" hx-trigger="load">
+<div id="saleTable" hx-get="/api/performance/sales/detail-table?period=本月&status=all" hx-trigger="load">
     <div class="text-center py-8 text-gray-400">加载中...</div>
 </div>
 
 <script>
-// 状态筛选按钮联动
+function refreshAll() {
+    const period = document.getElementById('periodSelect').value;
+    htmx.ajax('GET', `/api/performance/sales/stats?period=${period}`, {target: '#statsCards'});
+    htmx.ajax('GET', `/api/performance/sales/by-course?period=${period}`, {target: '#byCourse'});
+    htmx.ajax('GET', `/api/performance/sales/trend?period=${period}`, {target: '#trendChart'});
+    htmx.ajax('GET', `/api/performance/sales/by-staff?period=${period}`, {target: '#byStaff'});
+    htmx.ajax('GET', `/api/performance/sales/payment-breakdown?period=${period}`, {target: '#paymentBreakdown'});
+    htmx.ajax('GET', `/api/performance/sales/detail-table?period=${period}&status=all`, {target: '#saleTable'});
+}
+
+document.getElementById('periodSelect').addEventListener('change', refreshAll);
+
 document.addEventListener('click', function(e) {
     const btn = e.target.closest('.status-filter');
     if (!btn) return;
-    document.querySelectorAll('.status-filter').forEach(b =>
-        b.className = b.dataset.status === btn.dataset.status
+    document.querySelectorAll('.status-filter').forEach(b => {
+        const isActive = b.dataset.status === btn.dataset.status;
+        b.className = isActive
             ? 'status-filter px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white'
-            : 'status-filter px-3 py-1.5 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300'
-    );
+            : 'status-filter px-3 py-1.5 text-sm rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300';
+    });
     const period = document.getElementById('periodSelect')?.value || '本月';
-    htmx.ajax('GET', `/api/performance/sales/table?period=${period}&status=${btn.dataset.status}`, {target: '#saleTable'});
-});
-
-// 时间筛选联动
-document.getElementById('periodSelect')?.addEventListener('change', function() {
-    const period = this.value;
-    htmx.ajax('GET', `/api/performance/sales/stats?period=${period}`, {target: '#statsCards'});
-    htmx.ajax('GET', `/api/performance/sales/table?period=${period}&status=all`, {target: '#saleTable'});
+    htmx.ajax('GET', `/api/performance/sales/detail-table?period=${period}&status=${btn.dataset.status}`, {target: '#saleTable'});
 });
 </script>
 {% endblock %}

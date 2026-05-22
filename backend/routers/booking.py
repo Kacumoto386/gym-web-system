@@ -5,6 +5,7 @@ V3.2.1 - 完整的预约管理
 """
 from fastapi import APIRouter, Depends, Query, HTTPException, Form
 from fastapi.responses import HTMLResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from datetime import date, datetime
 from backend.database import get_db
@@ -40,6 +41,63 @@ def get_courses(db: Session = Depends(get_db)):
         {"course_id": c.course_id, "name": c.name, "duration": getattr(c, 'duration', 60) or 60}
         for c in courses
     ]
+
+
+# ══════════════════════════════════════════
+# 会员已购课程列表
+# ══════════════════════════════════════════
+
+@router.get("/member-courses")
+def get_member_courses(member_id: str = Query(""), db: Session = Depends(get_db)):
+    if not member_id:
+        return {"courses": []}
+
+    today = date.today()
+    pkgs = db.query(LessonPackage).filter(
+        LessonPackage.member_id == member_id,
+        LessonPackage.status == "正常",
+        LessonPackage.remaining_hours > 0,
+    ).all()
+
+    # 按课程分组汇总
+    course_map = {}
+    for p in pkgs:
+        course_ids = []
+        if p.included_courses:
+            course_ids = [c.strip() for c in p.included_courses.split(",") if c.strip()]
+        elif p.course_id:
+            course_ids = [p.course_id]
+
+        for cid in course_ids:
+            if cid not in course_map:
+                course_map[cid] = {
+                    "course_name": p.course_name or "",
+                    "total_remaining": 0,
+                    "has_valid": False,
+                }
+            course_map[cid]["total_remaining"] += p.remaining_hours
+            if p.valid_until is None or p.valid_until >= today:
+                course_map[cid]["has_valid"] = True
+
+    courses = []
+    for cid, info in course_map.items():
+        if info["has_valid"]:
+            courses.append({
+                "course_id": cid,
+                "course_name": info["course_name"],
+                "total_remaining": info["total_remaining"],
+                "expired": False,
+            })
+        else:
+            courses.append({
+                "course_id": cid,
+                "course_name": info["course_name"],
+                "total_remaining": info["total_remaining"],
+                "expired": True,
+            })
+
+    courses.sort(key=lambda c: c["course_name"])
+    return {"courses": courses}
 
 
 # ══════════════════════════════════════════
@@ -231,6 +289,21 @@ def create_booking(
         ).first()
         if conflict:
             raise HTTPException(400, f"该教练在 {booking_date} {start_time} 已有预约（会员：{conflict.member_name}）")
+
+    # 购买校验
+    today = date.today()
+    pkgs = db.query(LessonPackage).filter(
+        LessonPackage.member_id == member_id,
+        LessonPackage.status == "正常",
+        LessonPackage.remaining_hours > 0,
+        or_(
+            LessonPackage.course_id == course_id,
+            LessonPackage.included_courses.contains(course_id),
+        ),
+    ).all()
+    valid_pkgs = [p for p in pkgs if p.valid_until is None or p.valid_until >= today]
+    if not valid_pkgs:
+        raise HTTPException(400, f"该会员未购买「{course_name}」或课程包已过期/无剩余课时")
 
     from backend.routers.auto_num import generate_id
     booking_id = generate_id(db, Booking, "booking_id", prefix="BK")

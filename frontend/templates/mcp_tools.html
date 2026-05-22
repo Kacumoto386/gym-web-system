@@ -71,13 +71,13 @@
             <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
                 <div class="text-gray-500 text-sm">只读工具</div>
                 <div class="text-2xl font-bold text-blue-600 mt-1">
-                    {{ tools_by_category.values()|sum(attribute='selectattr', 'permission_mode.value', '==', 'read_only')|list|length }}
+                    {{ read_only_count }}
                 </div>
             </div>
             <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
                 <div class="text-gray-500 text-sm">写入工具</div>
                 <div class="text-2xl font-bold text-amber-600 mt-1">
-                    {{ tools_by_category.values()|sum(attribute='selectattr', 'permission_mode.value', '==', 'workspace_write')|list|length }}
+                    {{ workspace_write_count }}
                 </div>
             </div>
         </div>

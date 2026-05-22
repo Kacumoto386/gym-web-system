@@ -152,16 +152,13 @@ async def mcp_search_tools(q: str = ""):
 @router.get("/mcp-tools", response_class=HTMLResponse)
 async def mcp_tools_page(request: Request):
     """MCP工具管理页面"""
-    from fastapi.templating import Jinja2Templates
-    from pathlib import Path
-    templates_dir = Path(__file__).parent.parent.parent / "frontend" / "templates"
-    templates = Jinja2Templates(directory=str(templates_dir))
-    
+    from backend.app import templates
+
     executor = get_executor()
     mcp = get_mcp_server()
     tools = executor.list_tools()
     info = mcp.get_server_info()
-    
+
     return templates.TemplateResponse(
         request=request,
         name="mcp_tools.html",
@@ -173,5 +170,7 @@ async def mcp_tools_page(request: Request):
                 cat: [t for t in tools if t.category == cat]
                 for cat in sorted(set(t.category for t in tools))
             },
+            "read_only_count": len([t for t in tools if t.permission_mode == PermissionMode.READ_ONLY]),
+            "workspace_write_count": len([t for t in tools if t.permission_mode == PermissionMode.WORKSPACE_WRITE]),
         },
     )

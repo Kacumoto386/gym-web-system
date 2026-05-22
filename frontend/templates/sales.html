@@ -80,6 +80,8 @@
                         <option value="已付清">已付清</option><option value="部分支付">部分支付</option><option value="未付款">未付款</option>
                     </select>
                 </div>
+                <div><label class="block text-sm text-gray-600 mb-1">开卡日期</label><input id="fldStartDate" name="start_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">到期日期</label><input id="fldEndDate" name="end_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <!-- 销售人员：搜索输入框 + 下拉列表 -->
                 <div class="relative">
                     <label class="block text-sm text-gray-600 mb-1">选择销售人员</label>
@@ -115,8 +117,8 @@
 // ═══════════════════════════════════════
 // 缓存数据
 // ═══════════════════════════════════════
-let membersCache = [];
 let coursesCache = [];
+let memberSearchTimer = null;
 let memberSelected = null;
 let courseSelected = null;
 let staffSelected = null;
@@ -154,6 +156,8 @@ function clearForm() {
     document.getElementById('fldUnitPrice').value = '0';
     document.getElementById('fldStaffId').value = '';
     document.getElementById('fldStaffName').value = '';
+    document.getElementById('fldStartDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('fldEndDate').value = '';
     document.getElementById('formError').classList.add('hidden');
     hideMemberDropdown();
     hideCourseDropdown();
@@ -164,9 +168,10 @@ function clearForm() {
 // 加载数据
 // ═══════════════════════════════════════
 function loadMembers() {
+    // 打开弹窗时先加载最近 10 个会员作为快速选择
     fetch('/api/members/search-json?q=')
         .then(r => r.json())
-        .then(data => { membersCache = data || []; filterMembers(); })
+        .then(data => { showMemberList(data || []); })
         .catch(() => {});
 }
 
@@ -187,19 +192,12 @@ function loadStaff() {
 // ═══════════════════════════════════════
 // 会员搜索下拉
 // ═══════════════════════════════════════
-function filterMembers() {
-    const q = document.getElementById('searchMember').value.trim().toLowerCase();
-    const list = q ? membersCache.filter(m =>
-        (m.name || '').toLowerCase().includes(q) ||
-        (m.member_id || '').toLowerCase().includes(q) ||
-        (m.phone || '').includes(q)
-    ) : membersCache;
-
+function showMemberList(members) {
     const dd = document.getElementById('memberDropdown');
-    if (list.length === 0) {
+    if (!members || members.length === 0) {
         dd.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到匹配会员</div>';
     } else {
-        dd.innerHTML = list.map(m =>
+        dd.innerHTML = members.map(m =>
             `<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex justify-between"
                   onmousedown="selectMember('${m.member_id}', '${(m.name || '').replace(/'/g, "\\'")}', '${(m.phone || '').replace(/'/g, "\\'")}', this)">
                 <span>${m.name || '-'}</span>
@@ -208,6 +206,25 @@ function filterMembers() {
         ).join('');
     }
     dd.classList.remove('hidden');
+}
+
+function filterMembers() {
+    const q = document.getElementById('searchMember').value.trim();
+    clearTimeout(memberSearchTimer);
+    if (!q) {
+        // 空关键词：快速显示最近 10 个
+        fetch('/api/members/search-json?q=')
+            .then(r => r.json())
+            .then(data => showMemberList(data || []))
+            .catch(() => {});
+        return;
+    }
+    memberSearchTimer = setTimeout(function() {
+        fetch('/api/members/search-json?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(data => showMemberList(data || []))
+            .catch(() => {});
+    }, 200);
 }
 
 function showMemberDropdown() {
@@ -376,9 +393,11 @@ function submitSale() {
     data.actual_amount = parseFloat(data.actual_amount) || 0;
     data.unit_price = parseFloat(data.unit_price) || 0;
 
-    // 清理空字符串
+    // 日期空值转 null
     Object.keys(data).forEach(k => {
-        if (data[k] === '') data[k] = '';
+        if (data[k] === '' && (k.endsWith('_date') || k === 'start_date' || k === 'end_date')) {
+            data[k] = null;
+        }
     });
 
     fetch('/api/sales', {
