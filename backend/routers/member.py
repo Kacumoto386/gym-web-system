@@ -12,7 +12,6 @@ from datetime import date, datetime, timedelta
 from backend.database import get_db
 from backend.models.models import Member, MembershipCard, Checkin, ClassRecord, BodyMeasurement, Recharge, Sale, Staff, LessonPackage
 from backend.services.id_gen import generate_id
-from sqlalchemy import or_
 
 router = APIRouter(prefix="/api/members", tags=["会员管理"])
 TODAY = date.today()
@@ -174,7 +173,15 @@ def member_table(
     if source:
         query = query.filter(Member.source == source)
     if staff_id:
-        query = query.filter(Member.staff_id == staff_id)
+        # 部分会员存的是 staff_id，部分存的是 staff_name，故同时匹配
+        staff_name_lookup = ""
+        staff_row = db.query(Staff).filter(Staff.staff_id == staff_id).first()
+        if staff_row:
+            staff_name_lookup = staff_row.name
+        if staff_name_lookup:
+            query = query.filter((Member.staff_id == staff_id) | (Member.staff_name == staff_name_lookup))
+        else:
+            query = query.filter(Member.staff_id == staff_id)
     if reg_from:
         try:
             query = query.filter(func.date(Member.created_at) >= date.fromisoformat(reg_from))
@@ -267,7 +274,9 @@ def filter_options(db: Session = Depends(get_db)):
     levels = [r[0] for r in db.query(Member.level).distinct().filter(Member.level != "").all()]
     statuses = [r[0] for r in db.query(Member.status).distinct().filter(Member.status != "").all()]
     sources = [r[0] for r in db.query(Member.source).distinct().filter(Member.source != "").all()]
-    staff_list = db.query(Staff).filter(or_(Staff.status == "在职", Staff.status == "")).order_by(Staff.name).all()
+    staff_list = db.query(Staff).filter(
+        Staff.status.in_(["在职", ""])
+    ).order_by(Staff.name).all()
     return {
         "levels": levels,
         "statuses": statuses,

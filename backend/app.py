@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.6.3 — 会员管理页面 UI 紧凑化 + 表格列宽优化
+V3.6.4 — 会员跟进员工筛选修复 + favicon 路由
 """
 import os
 import sys
@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.6.1 — ConversationRuntime AI 对话",
-    version="3.6.1",
+    description="Web 版健身管理系统 V3.6.4 — ConversationRuntime AI 对话",
+    version="3.6.4",
 )
 
 # 模板
@@ -611,11 +611,16 @@ def performance_checkins_page(request: Request):
     )
 
 
+@app.get("/favicon.ico")
+async def favicon():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/static/favicon.svg")
+
 @app.get("/api/health")
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.6.1", "system_name": name}
+    return {"status": "ok", "version": "3.6.4", "system_name": name}
 
 
 # 路由注册
