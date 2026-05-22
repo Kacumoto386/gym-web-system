@@ -41,12 +41,41 @@
 function refreshFinance() {
     const y = document.getElementById('yearFilter').value || {{ today.year }};
     const m = document.getElementById('monthFilter').value || {{ today.month }};
-    document.getElementById('financeSummary').setAttribute('hx-get', '/api/finance/summary?year='+y+'&month='+m);
-    document.getElementById('incomeTable').setAttribute('hx-get', '/api/finance/income/table?year='+y+'&month='+m);
-    document.getElementById('expenseTable').setAttribute('hx-get', '/api/finance/expense/table?year='+y+'&month='+m);
-    htmx.trigger('#financeSummary', 'load');
-    htmx.trigger('#incomeTable', 'load');
-    htmx.trigger('#expenseTable', 'load');
+    fetch('/api/finance/summary?year='+y+'&month='+m).then(r => r.text()).then(h => { document.getElementById('financeSummary').innerHTML = h; });
+    fetch('/api/finance/income/table?year='+y+'&month='+m).then(r => r.text()).then(h => { document.getElementById('incomeTable').innerHTML = h; });
+    fetch('/api/finance/expense/table?year='+y+'&month='+m).then(r => r.text()).then(h => { document.getElementById('expenseTable').innerHTML = h; });
+}
+function submitIncome() {
+    const form = document.getElementById('incomeForm');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    const data = Object.fromEntries(new FormData(form));
+    data.amount = parseFloat(data.amount) || 0;
+    fetch('/api/finance/income', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => {
+        if (!r.ok) throw new Error('保存失败');
+        document.getElementById('addIncomeModal').classList.add('hidden');
+        form.reset();
+        refreshFinance();
+    }).catch(e => alert('保存失败: ' + e.message));
+}
+function submitExpense() {
+    const form = document.getElementById('expenseForm');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    const data = Object.fromEntries(new FormData(form));
+    data.amount = parseFloat(data.amount) || 0;
+    fetch('/api/finance/expense', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    }).then(r => {
+        if (!r.ok) throw new Error('保存失败');
+        document.getElementById('addExpenseModal').classList.add('hidden');
+        form.reset();
+        refreshFinance();
+    }).catch(e => alert('保存失败: ' + e.message));
 }
 function switchFinanceTab(tab) {
     document.getElementById('incomeSection').classList.toggle('hidden', tab !== 'income');
@@ -63,7 +92,7 @@ function switchFinanceTab(tab) {
             <h3 class="text-lg font-semibold">新增收入</h3>
             <button onclick="document.getElementById('addIncomeModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
-        <form hx-post="/api/finance/income" hx-target="#incomeTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addIncomeModal').classList.add('hidden'); this.reset(); refreshFinance();}">
+        <form id="incomeForm">
             <div class="grid grid-cols-2 gap-3">
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label><input name="income_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label>
@@ -82,7 +111,7 @@ function switchFinanceTab(tab) {
             <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">备注</label><textarea name="remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
             <div class="flex justify-end gap-2 mt-4">
                 <button type="button" onclick="document.getElementById('addIncomeModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
-                <button type="submit" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存</button>
+                <button type="button" onclick="submitIncome()" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存</button>
             </div>
         </form>
     </div>
@@ -95,7 +124,7 @@ function switchFinanceTab(tab) {
             <h3 class="text-lg font-semibold">新增支出</h3>
             <button onclick="document.getElementById('addExpenseModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
-        <form hx-post="/api/finance/expense" hx-target="#expenseTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addExpenseModal').classList.add('hidden'); this.reset(); refreshFinance();}">
+        <form id="expenseForm">
             <div class="grid grid-cols-2 gap-3">
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label><input name="expense_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label>
@@ -114,7 +143,7 @@ function switchFinanceTab(tab) {
             <div class="mt-3"><label class="block text-sm text-gray-600 mb-1">备注</label><textarea name="remark" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea></div>
             <div class="flex justify-end gap-2 mt-4">
                 <button type="button" onclick="document.getElementById('addExpenseModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
-                <button type="submit" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700">保存</button>
+                <button type="button" onclick="submitExpense()" class="px-4 py-2 text-sm text-white bg-red-600 rounded-lg hover:bg-red-700">保存</button>
             </div>
         </form>
     </div>
