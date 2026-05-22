@@ -59,15 +59,16 @@
             <button onclick="document.getElementById('editModal').classList.add('hidden')"
                     class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
-        <form id="editForm" hx-put="" hx-target="#classRecordTable"
-              hx-on::after-request="if(event.detail.successful){document.getElementById('editModal').classList.add('hidden');refreshAll();}">
+        <form id="editForm">
             <div class="grid grid-cols-2 gap-4">
                 <div><label class="block text-sm text-gray-600 mb-1">会员编号</label>
                     <input name="member_id" id="edit_member_id" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
-                <div><label class="block text-sm text-gray-600 mb-1">会员姓名</label>
-                    <input name="member_name" id="edit_member_name" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
-                <div><label class="block text-sm text-gray-600 mb-1">手机号</label>
-                    <input name="member_phone" id="edit_member_phone" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">会员姓名 <span class="text-gray-400">(只读)</span></label>
+                    <input name="member_name" id="edit_member_name" readonly
+                           class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-100 cursor-not-allowed"></div>
+                <div><label class="block text-sm text-gray-600 mb-1">手机号 <span class="text-gray-400">(只读)</span></label>
+                    <input name="member_phone" id="edit_member_phone" readonly
+                           class="w-full px-3 py-2 border rounded-lg text-sm bg-gray-100 cursor-not-allowed"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">课程名称</label>
                     <input name="course_name" id="edit_course_name" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">教练姓名</label>
@@ -75,9 +76,13 @@
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label>
                     <input name="class_date" id="edit_class_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">开始时间</label>
-                    <input name="start_time" id="edit_start_time" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                    <input name="start_time" id="edit_start_time" type="time"
+                           class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">结束时间</label>
-                    <input name="end_time" id="edit_end_time" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
+                    <input name="end_time" id="edit_end_time" type="time"
+                           class="w-full px-3 py-2 border rounded-lg text-sm"
+                           onchange="validateEditTime()">
+                    <p id="edit_time_error" class="text-red-500 text-xs mt-1 hidden">结束时间不能早于开始时间</p></div>
                 <div><label class="block text-sm text-gray-600 mb-1">消耗课时</label>
                     <input name="consumed_hours" id="edit_consumed_hours" type="number" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">状态</label>
@@ -98,7 +103,8 @@
             <div class="flex justify-end gap-2 mt-6">
                 <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')"
                         class="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">取消</button>
-                <button type="submit" class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存修改</button>
+                <button type="button" onclick="submitEditRecord()"
+                        class="px-4 py-2 text-sm text-white bg-green-600 rounded-lg hover:bg-green-700">保存修改</button>
             </div>
         </form>
     </div>
@@ -135,6 +141,7 @@
 
 <script>
 let currentEvalRecordId = null;
+let currentEditRecordId = null;
 
 // ═══════════════════════════════════════════
 // 加载教练下拉选项
@@ -238,6 +245,7 @@ function toggleDetail(recordId) {
 // 编辑课程记录
 // ═══════════════════════════════════════════
 function openEditRecord(recordId) {
+    currentEditRecordId = recordId;
     fetch('/api/class-records/' + recordId)
         .then(r => r.json())
         .then(d => {
@@ -254,9 +262,56 @@ function openEditRecord(recordId) {
             document.getElementById('edit_evaluation').value = d.evaluation || '';
             document.getElementById('edit_feedback').value = d.feedback || '';
             document.getElementById('edit_notes').value = d.notes || '';
-            document.getElementById('editForm').setAttribute('hx-put', '/api/class-records/' + recordId);
             document.getElementById('editModal').classList.remove('hidden');
         });
+}
+
+function validateEditTime() {
+    var start = document.getElementById('edit_start_time').value;
+    var end = document.getElementById('edit_end_time').value;
+    var err = document.getElementById('edit_time_error');
+    if (start && end && end <= start) {
+        err.classList.remove('hidden');
+        return false;
+    }
+    err.classList.add('hidden');
+    return true;
+}
+
+function submitEditRecord() {
+    if (!currentEditRecordId) return;
+    if (!validateEditTime()) return;
+    var data = {
+        member_id: document.getElementById('edit_member_id').value,
+        member_name: document.getElementById('edit_member_name').value,
+        member_phone: document.getElementById('edit_member_phone').value,
+        course_name: document.getElementById('edit_course_name').value,
+        coach_name: document.getElementById('edit_coach_name').value,
+        class_date: document.getElementById('edit_class_date').value,
+        start_time: document.getElementById('edit_start_time').value,
+        end_time: document.getElementById('edit_end_time').value,
+        consumed_hours: parseInt(document.getElementById('edit_consumed_hours').value) || 1,
+        status: document.getElementById('edit_status').value,
+        evaluation: document.getElementById('edit_evaluation').value,
+        feedback: document.getElementById('edit_feedback').value,
+        notes: document.getElementById('edit_notes').value,
+    };
+    fetch('/api/class-records/' + currentEditRecordId, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(function(r) {
+        if (!r.ok) return r.json().then(function(e) { throw new Error(e.detail || '保存失败: ' + r.status); });
+        return r.json();
+    })
+    .then(function() {
+        document.getElementById('editModal').classList.add('hidden');
+        refreshAll();
+    })
+    .catch(function(err) {
+        alert(err.message);
+    });
 }
 
 // ═══════════════════════════════════════════
@@ -289,8 +344,12 @@ document.getElementById('evalSubmitBtn')?.addEventListener('click', function() {
 // 刷新
 // ═══════════════════════════════════════════
 function refreshAll() {
-    htmx.trigger('#cardArea', 'load');
-    htmx.trigger('#classRecordTable', 'load');
+    fetch('/api/class-records/cards')
+        .then(r => r.text())
+        .then(html => document.getElementById('cardArea').innerHTML = html);
+    fetch('/api/class-records/table')
+        .then(r => r.text())
+        .then(html => document.getElementById('classRecordTable').innerHTML = html);
 }
 </script>
 

@@ -28,6 +28,7 @@ Thumbs.db
 
 # Backups
 _d_backups/
+_backups/
 
 # Debug / temp scripts
 _check_*.py

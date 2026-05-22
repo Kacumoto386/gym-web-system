@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, datetime
 from backend.database import get_db
-from backend.models.models import ClassRecord
+from backend.models.models import ClassRecord, Member
 from backend.services.id_gen import generate_id
 from pydantic import BaseModel
 
@@ -93,6 +93,7 @@ def _build_table(rows: list) -> str:
         trs += f"""<tr class="hover:bg-gray-50 border-b group" onclick="toggleDetail('{r.record_id}')">
             <td class="px-3 py-2.5 text-xs text-gray-500">{r.record_id}</td>
             <td class="px-3 py-2.5">{r.member_name or ''}</td>
+            <td class="px-3 py-2.5 text-sm text-gray-500">{r.member_phone or ''}</td>
             <td class="px-3 py-2.5 text-sm">{r.course_name or ''}</td>
             <td class="px-3 py-2.5 text-sm text-gray-600">{r.coach_name or '-'}</td>
             <td class="px-3 py-2.5 text-sm">{r.class_date}</td>
@@ -110,7 +111,7 @@ def _build_table(rows: list) -> str:
             </td>
         </tr>
         <tr class="hidden border-b bg-gray-50" id="detail-{r.record_id}">
-            <td colspan="9" class="px-6 py-3" onclick="event.stopPropagation()">
+            <td colspan="10" class="px-6 py-3" onclick="event.stopPropagation()">
                 <div class="grid grid-cols-3 gap-4 text-sm">
                     <div><span class="text-gray-400">会员电话</span><br><span class="text-gray-700">{r.member_phone or '-'}</span></div>
                     <div><span class="text-gray-400">签到时间</span><br><span class="text-gray-700">{r.sign_in_time.strftime('%Y-%m-%d %H:%M') if r.sign_in_time else '-'}</span></div>
@@ -125,7 +126,7 @@ def _build_table(rows: list) -> str:
         </tr>"""
     return f"""<table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
-            <tr><th class="px-3 py-3">编号</th><th class="px-3 py-3">会员</th><th class="px-3 py-3">课程</th><th class="px-3 py-3">教练</th><th class="px-3 py-3">日期</th><th class="px-3 py-3">时间</th><th class="px-3 py-3">课时</th><th class="px-3 py-3">状态</th><th class="px-3 py-3">操作</th></tr>
+            <tr><th class="px-3 py-3">编号</th><th class="px-3 py-3">会员</th><th class="px-3 py-3">手机号</th><th class="px-3 py-3">课程</th><th class="px-3 py-3">教练</th><th class="px-3 py-3">日期</th><th class="px-3 py-3">时间</th><th class="px-3 py-3">课时</th><th class="px-3 py-3">状态</th><th class="px-3 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
     </table>"""
@@ -158,7 +159,18 @@ def class_record_table(
             ClassRecord.course_name.contains(kw) |
             ClassRecord.record_id.contains(kw)
         )
-    return _build_table(query.order_by(ClassRecord.id.desc()).limit(100).all())
+    records = query.order_by(ClassRecord.id.desc()).limit(100).all()
+
+    # 从 Member 表补充缺失的手机号
+    member_ids = set(r.member_id for r in records if r.member_id and not r.member_phone)
+    if member_ids:
+        members = db.query(Member).filter(Member.member_id.in_(member_ids)).all()
+        phone_map = {m.member_id: m.phone or "" for m in members}
+        for r in records:
+            if not r.member_phone and r.member_id in phone_map:
+                r.member_phone = phone_map[r.member_id]
+
+    return _build_table(records)
 
 
 # ═══════════════════════════════════════════
@@ -328,6 +340,13 @@ def update_class_record(record_id: str, data: ClassRecordUpdate, db: Session = D
     if not record:
         raise HTTPException(status_code=404, detail="上课记录不存在")
     update_dict = data.model_dump(exclude_unset=True)
+
+    # 校验：结束时间不能早于开始时间
+    start_time = update_dict.get("start_time") or record.start_time
+    end_time = update_dict.get("end_time") or record.end_time
+    if start_time and end_time and end_time <= start_time:
+        raise HTTPException(status_code=422, detail="结束时间不能早于开始时间")
+
     for key, val in update_dict.items():
         if val is not None:
             if key == "class_date" and isinstance(val, str):
