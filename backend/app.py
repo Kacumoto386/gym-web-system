@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.6.2 — 会员管理页面 UI 紧凑化
+V3.6.3 — 会员管理页面 UI 紧凑化 + 表格列宽优化
 """
 import os
 import sys

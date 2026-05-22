@@ -16,7 +16,7 @@
 <!-- 多维筛选栏 -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-3 mb-3">
     <div class="flex flex-wrap items-center gap-2 mb-1.5">
-        <div class="relative flex-1 min-w-[200px]">
+        <div class="relative w-52">
             <span class="absolute left-3 top-2 text-gray-400 text-sm">🔍</span>
             <input type="text" id="filterQ" placeholder="搜索姓名/手机号/编号..."
                    class="w-full pl-8 pr-2 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
@@ -33,23 +33,23 @@
         <button onclick="doSearch()" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">🔍 查询</button>
         <button onclick="resetFilters()" class="px-3 py-1.5 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">↻ 重置</button>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-wrap items-center gap-1.5">
         <select id="filterStaff" class="px-2 py-1.5 border rounded-lg text-sm bg-white">
             <option value="">全部员工</option>
         </select>
-        <span class="text-sm text-gray-500">注册日期:</span>
-        <input type="date" id="filterRegFrom" class="px-2 py-1.5 border rounded-lg text-sm w-36">
-        <span class="text-gray-400 text-sm">至</span>
-        <input type="date" id="filterRegTo" class="px-2 py-1.5 border rounded-lg text-sm w-36">
-        <span class="text-xs text-gray-400 mx-1">|</span>
-        <span class="text-sm text-gray-500">最近签到:</span>
-        <input type="date" id="filterCheckinFrom" class="px-2 py-1.5 border rounded-lg text-sm w-36">
-        <span class="text-gray-400 text-sm">至</span>
-        <input type="date" id="filterCheckinTo" class="px-2 py-1.5 border rounded-lg text-sm w-36">
-        <button onclick="quickDate('today')" class="px-2 py-1 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">今天</button>
-        <button onclick="quickDate('week')" class="px-2 py-1 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">本周</button>
-        <button onclick="quickDate('month')" class="px-2 py-1 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">本月</button>
-        <button onclick="quickDate('all')" class="px-2 py-1 text-xs border rounded hover:bg-gray-50 text-gray-500">全部</button>
+        <span class="text-xs text-gray-500">注册:</span>
+        <input type="date" id="filterRegFrom" class="px-1.5 py-1.5 border rounded-lg text-sm w-24">
+        <span class="text-gray-400 text-xs">~</span>
+        <input type="date" id="filterRegTo" class="px-1.5 py-1.5 border rounded-lg text-sm w-24">
+        <span class="text-gray-300 text-xs">|</span>
+        <span class="text-xs text-gray-500">签到:</span>
+        <input type="date" id="filterCheckinFrom" class="px-1.5 py-1.5 border rounded-lg text-sm w-24">
+        <span class="text-gray-400 text-xs">~</span>
+        <input type="date" id="filterCheckinTo" class="px-1.5 py-1.5 border rounded-lg text-sm w-24">
+        <button onclick="quickDate('today')" class="px-1.5 py-0.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">今天</button>
+        <button onclick="quickDate('week')" class="px-1.5 py-0.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">本周</button>
+        <button onclick="quickDate('month')" class="px-1.5 py-0.5 text-xs border rounded hover:bg-blue-50 text-blue-600 border-blue-200">本月</button>
+        <button onclick="quickDate('all')" class="px-1.5 py-0.5 text-xs border rounded hover:bg-gray-50 text-gray-500">全部</button>
     </div>
 </div>
 
