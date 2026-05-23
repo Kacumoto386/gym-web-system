@@ -85,7 +85,7 @@ def staff_search_json(q: str = Query(""), db: Session = Depends(get_db)):
         )
     return [
         {"staff_id": s.staff_id, "name": s.name, "phone": s.phone or "",
-         "position": s.position or ""}
+         "position": s.position or "", "status": s.status or ""}
         for s in query.order_by(Staff.staff_id).limit(50).all()
     ]
 

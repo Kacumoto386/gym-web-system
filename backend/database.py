@@ -33,3 +33,11 @@ def get_db():
 def init_db():
     """创建所有表"""
     Base.metadata.create_all(bind=engine)
+    # 迁移：新增字段
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE recharge ADD COLUMN expiry_date DATE"))
+            conn.commit()
+        except Exception:
+            pass  # 字段已存在

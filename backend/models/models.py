@@ -178,6 +178,7 @@ class Recharge(Base):
     payment_method = Column(String(20), default="", comment="付款方式")
     recharge_type = Column(String(20), default="", comment="充值类型")
     operator_id = Column(String(20), default="", comment="经办员工")
+    expiry_date = Column(Date, nullable=True, comment="到期日期")
     remark = Column(Text, default="", comment="充值备注")
     store_id = Column(String(20), default="", comment="门店编号")
     voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")

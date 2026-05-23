@@ -4,7 +4,7 @@
 V3.0.0
 """
 from typing import Optional, List
-from fastapi import Request,  APIRouter, Depends, HTTPException, Query
+from fastapi import Request,  APIRouter, Depends, HTTPException, Query, Form
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import date, datetime
@@ -20,9 +20,11 @@ router = APIRouter(prefix="/api/recharges", tags=["充值管理"])
 # HTMX HTML 片段
 # ═══════════════════════════════════════════
 
-def _build_table(rows: list) -> str:
+def _build_table(rows: list, balance_map: dict = None) -> str:
     if not rows:
         return '<div class="text-center py-8 text-gray-400">暂无充值记录</div>'
+    if balance_map is None:
+        balance_map = {}
     trs = ""
     for r in rows:
         voided = getattr(r, 'voided', 0)
@@ -33,6 +35,8 @@ def _build_table(rows: list) -> str:
             tr_class = 'hover:bg-gray-50 border-b opacity-50'
             badge = ' <span class="inline-block bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded ml-1">已作废</span>'
             actions = '<span class="text-gray-400 text-xs">已作废</span>'
+        expiry = r.expiry_date.strftime('%Y-%m-%d') if r.expiry_date else ''
+        balance = balance_map.get(r.member_id, '')
         trs += f"""<tr class="{tr_class}">
             <td class="px-4 py-3 text-sm text-gray-500">{r.recharge_id}</td>
             <td class="px-4 py-3">{r.member_name or ''}{badge}</td>
@@ -44,13 +48,15 @@ def _build_table(rows: list) -> str:
             <td class="px-4 py-3 text-sm">{r.payment_method or ''}</td>
             <td class="px-4 py-3 text-sm">{r.recharge_type or ''}</td>
             <td class="px-4 py-3 text-sm">{r.operator_id or ''}</td>
+            <td class="px-4 py-3 text-sm">{expiry}</td>
+            <td class="px-4 py-3 text-sm font-medium">{balance}</td>
             <td class="px-4 py-3 text-sm">
                 {actions}
             </td>
         </tr>"""
     return f"""<table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
-            <tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">会员</th><th class="px-4 py-3">会员编号</th><th class="px-4 py-3">日期</th><th class="px-4 py-3">充值金额</th><th class="px-4 py-3">赠送金额</th><th class="px-4 py-3">实付</th><th class="px-4 py-3">支付方式</th><th class="px-4 py-3">类型</th><th class="px-4 py-3">经办人</th><th class="px-4 py-3">操作</th></tr>
+            <tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">会员</th><th class="px-4 py-3">会员编号</th><th class="px-4 py-3">日期</th><th class="px-4 py-3">充值金额</th><th class="px-4 py-3">赠送金额</th><th class="px-4 py-3">实付</th><th class="px-4 py-3">支付方式</th><th class="px-4 py-3">类型</th><th class="px-4 py-3">经办人</th><th class="px-4 py-3">到期时间</th><th class="px-4 py-3">剩余余额(含赠金)</th><th class="px-4 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
     </table>"""
@@ -61,7 +67,12 @@ def recharge_table(member_id: str = "", db: Session = Depends(get_db)):
     query = db.query(Recharge).filter(Recharge.voided == 0)
     if member_id:
         query = query.filter(Recharge.member_id == member_id)
-    return _build_table(query.order_by(Recharge.recharge_date.desc()).limit(100).all())
+    rows = query.order_by(Recharge.recharge_date.desc()).limit(100).all()
+    # 预加载会员余额
+    mids = {r.member_id for r in rows}
+    members = db.query(Member).filter(Member.member_id.in_(mids)).all()
+    balance_map = {m.member_id: f'¥{m.balance:.2f}' if m.balance else '¥0.00' for m in members}
+    return _build_table(rows, balance_map)
 
 
 @router.get("/voided/table", response_class=HTMLResponse)
@@ -70,7 +81,11 @@ def voided_recharge_table(member_id: str = "", db: Session = Depends(get_db)):
     query = db.query(Recharge).filter(Recharge.voided == 1)
     if member_id:
         query = query.filter(Recharge.member_id == member_id)
-    return _build_table(query.order_by(Recharge.recharge_date.desc()).limit(100).all())
+    rows = query.order_by(Recharge.recharge_date.desc()).limit(100).all()
+    mids = {r.member_id for r in rows}
+    members = db.query(Member).filter(Member.member_id.in_(mids)).all()
+    balance_map = {m.member_id: f'¥{m.balance:.2f}' if m.balance else '¥0.00' for m in members}
+    return _build_table(rows, balance_map)
 
 
 # ═══════════════════════════════════════════
@@ -87,6 +102,7 @@ class RechargeCreate(BaseModel):
     payment_method: str = ""
     recharge_type: str = "普通充值"
     operator_id: str = ""
+    expiry_date: str = ""
     remark: str = ""
 
 
@@ -106,6 +122,7 @@ class RechargeOut(BaseModel):
     payment_method: str
     recharge_type: str
     operator_id: str
+    expiry_date: Optional[date] = None
     remark: str
 
     class Config:
@@ -138,30 +155,51 @@ def get_recharge(recharge_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=RechargeOut)
-def create_recharge(data: RechargeCreate, db: Session = Depends(get_db)):
+def create_recharge(
+    member_id: str = Form(...),
+    member_name: str = Form(...),
+    recharge_date: str = Form(""),
+    amount: float = Form(0),
+    bonus: float = Form(0),
+    actual_amount: float = Form(0),
+    payment_method: str = Form(""),
+    recharge_type: str = Form("普通充值"),
+    operator_id: str = Form(""),
+    remark: str = Form(""),
+    expiry_date: str = Form(""),
+    db: Session = Depends(get_db),
+):
     recharge_id = generate_id("RC", db, Recharge.recharge_id)
     try:
-        d = date.fromisoformat(data.recharge_date) if data.recharge_date else date.today()
+        d = date.fromisoformat(recharge_date) if recharge_date else date.today()
     except ValueError:
         d = date.today()
 
     r = Recharge(
         recharge_id=recharge_id, recharge_date=d,
-        member_id=data.member_id, member_name=data.member_name,
-        amount=data.amount or 0, bonus=data.bonus or 0,
-        actual_amount=data.actual_amount or 0,
-        payment_method=data.payment_method or "",
-        recharge_type=data.recharge_type or "普通充值",
-        operator_id=data.operator_id or "",
-        remark=data.remark or "",
+        member_id=member_id, member_name=member_name,
+        amount=amount or 0, bonus=bonus or 0,
+        actual_amount=actual_amount or 0,
+        payment_method=payment_method or "",
+        recharge_type=recharge_type or "普通充值",
+        operator_id=operator_id or "",
+        remark=remark or "",
     )
+    # 处理到期日期
+    if expiry_date:
+        try:
+            r.expiry_date = date.fromisoformat(expiry_date)
+        except ValueError:
+            pass
     db.add(r)
 
     # 更新会员余额
-    member = db.query(Member).filter(Member.member_id == data.member_id).first()
+    member = db.query(Member).filter(Member.member_id == member_id).first()
     if member:
-        member.balance = (member.balance or 0) + (data.amount or 0) + (data.bonus or 0)
-        member.recharge_total = (member.recharge_total or 0) + (data.amount or 0) + (data.bonus or 0)
+        from decimal import Decimal
+        amt = Decimal(str(amount or 0)) + Decimal(str(bonus or 0))
+        member.balance = (member.balance or Decimal(0)) + amt
+        member.recharge_total = (member.recharge_total or Decimal(0)) + amt
 
     db.commit()
     db.refresh(r)
