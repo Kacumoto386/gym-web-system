@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.7.1 — 商品零售进销存增强
+V3.7.6 — AI 助手浮动窗口
 """
 import os
 import sys
@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.7.5 — 作废/红冲机制",
-    version="3.7.5",
+    description="Web 版健身管理系统 V3.7.6 — AI 助手浮动窗口",
+    version="3.7.6",
 )
 
 # 模板
