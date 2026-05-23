@@ -18,6 +18,7 @@ LLM ↔ 工具 对话循环引擎。
 
 from __future__ import annotations
 import json
+import logging
 import os
 import re
 import time
@@ -28,6 +29,8 @@ from typing import Any, Dict, List, Optional, Callable, AsyncIterator
 from openai import OpenAI
 
 from backend.mcp.executor import ToolExecutor, ToolDefinition
+
+log = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════
