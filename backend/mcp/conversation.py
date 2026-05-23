@@ -136,6 +136,7 @@ SYSTEM_PROMPT_TEMPLATE = """你是鼠小弟健身管理系统的 AI 助手。用
 3. 如果工具返回的数据不足以回答问题，可以继续调用其他工具
 4. 最终回答需要自然流畅，不要暴露工具调用的技术细节
 5. 如果用户的请求涉及写入操作（创建/修改/删除），先确认再执行
+6. **效率优先**：当需要查询多个会员/员工/课程时，优先使用批量查询工具。例如 `get_member_balances()` **不传参数即可返回全部会员余额**，无需逐个查询。`list_members(page_size=200)` 可一次返回 200 条。最多执行 10 轮工具调用就会超时，逐个查询无法完成任务
 
 ## 可用工具
 {tool_descriptions}
@@ -332,16 +333,18 @@ class ConversationRuntime:
         
         # 3. 循环：LLM → 工具执行 → LLM → …
         max_iterations = 10  # 防止无限循环
+        tool_call_counter = {}  # 跟踪工具调用次数，检测死循环
+
         for iteration in range(max_iterations):
             # 调用 LLM
             reply = self._call_llm(conv.to_openai_messages())
-            
+
             # 清理 DeepSeek 返回的 FF5C 控制字符（U+FF5C 全角竖线）
             reply = reply.replace(chr(0xFF5C), '')
-            
+
             # 提取工具调用
             tool_calls = self._extract_tool_calls(reply)
-            
+
             if tool_calls:
                 # 有工具调用 → 执行工具 → 结果加回对话 → 继续
                 clean_reply = self._clean_assistant_response(reply)
@@ -374,15 +377,15 @@ class ConversationRuntime:
                             },
                         } for i, c in enumerate(tool_calls)],
                     ))
-                
+
                 # 执行每个工具
                 for call in tool_calls:
                     tool_name = call["name"]
                     arguments = call.get("arguments", {})
 
-                    
+
                     result = self.executor.execute(tool_name, arguments)
-                    
+
                     tool_msg_content = (
                         json.dumps(result.data, ensure_ascii=False, default=str)
                         if result.success
@@ -391,14 +394,41 @@ class ConversationRuntime:
                     # 防御性过滤：json.dumps 的 default=str 可能输出 "[object Object]"
                     tool_msg_content = re.sub(r'"\[object\s+Object\]"(,\s*"\[object\s+Object\]")*("undefined")?', '', tool_msg_content)
                     tool_msg_content = tool_msg_content.replace('"[object Object]"', '')
-                    
+
                     conv.add_message(ChatMessage(
                         role="tool",
                         content=tool_msg_content,
                         tool_call_id=f"call_{tool_calls.index(call)}",
                         name=tool_name,
                     ))
-                
+
+                    # 跟踪工具调用次数
+                    tool_call_counter[tool_name] = tool_call_counter.get(tool_name, 0) + 1
+
+                # 检测死循环：同一工具被反复调用（3次后注入提示，5次后强制终止）
+                loop_breaker_fired = False
+                for tname, tcount in tool_call_counter.items():
+                    if tcount >= 5:
+                        # 强制终止循环，返回已收集的信息
+                        log.warning(f"Loop breaker: {tname} called {tcount}x, breaking loop")
+                        fallback = f"查询范围过大，无法在有限步骤内完成全部数据的逐条查询。建议缩小查询范围（如指定具体会员编号或姓名），或者使用批量查询参数一次获取。"
+                        conv.add_message(ChatMessage(role="assistant", content=fallback))
+                        if stream_callback:
+                            stream_callback(fallback)
+                        return fallback
+                    if tcount >= 3 and not loop_breaker_fired:
+                        log.warning(f"Loop guard: {tname} called {tcount}x, injecting hint")
+                        hint = (
+                            f"【系统强制指令】你已经连续调用 {tname} 工具 {tcount} 次，正在逐个查询数据，"
+                            f"但系统最多允许 10 轮工具调用。请在下一轮必须完成所有数据获取！\n\n"
+                            f"请改用以下方式一次性获取所有数据：\n"
+                            f"- 查询余额：get_member_balances() ← 不传参数即可一次性返回全部会员的储值余额\n"
+                            f"- 查询会员：list_members(page_size=200, keyword=...) ← 用关键词缩小范围\n\n"
+                            f"立即停止逐个查询！本轮必须给出最终回答！"
+                        )
+                        conv.add_message(ChatMessage(role="system", content=hint))
+                        loop_breaker_fired = True
+
                 # 继续下一轮 LLM 调用
                 continue
             else:

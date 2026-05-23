@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.7.7 — AI 助手 MCP 工具修复
+V3.8.0 — AI 助手循环死锁修复 + 批量余额查询
 """
 import os
 import sys
@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.7.7 — AI 助手 MCP 工具修复",
-    version="3.7.7",
+    description="Web 版健身管理系统 V3.8.0 — AI 助手循环死锁修复 + 批量余额查询",
+    version="3.8.0",
 )
 
 # 模板
@@ -518,7 +518,7 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.7.1", "system_name": name}
+    return {"status": "ok", "version": "3.8.0", "system_name": name}
 
 
 # 路由注册

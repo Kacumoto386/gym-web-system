@@ -93,7 +93,7 @@ def today_checkins_dashboard(db: Session = Depends(get_db)):
         phone = member.phone if member else ""
 
         ct = c.checkin_type or "核销"
-        icon = "✅" if ct == "核销" else "👋" if ct == "体验" else "🏷️" if ct == "刷卡" else "✅"
+        badge_cls = "bg-green-100 text-green-700" if ct == "核销" else "bg-yellow-100 text-yellow-700" if ct == "体验" else "bg-blue-100 text-blue-700"
         time_str = c.checkin_date.isoformat() if hasattr(c.checkin_date, 'isoformat') else str(c.checkin_date)
         rows += f"""
         <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
@@ -105,7 +105,7 @@ def today_checkins_dashboard(db: Session = Depends(get_db)):
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <span class="text-xs px-2 py-0.5 rounded-full {'bg-green-100 text-green-700' if ct == '核销' else 'bg-yellow-100 text-yellow-700' if ct == '体验' else 'bg-blue-100 text-blue-700'}">{icon} {ct}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full {badge_cls}">{ct}</span>
             </div>
         </div>"""
 
@@ -121,7 +121,7 @@ def today_checkins_dashboard(db: Session = Depends(get_db)):
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
         <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="text-base">📊</span>
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><use href="#icon-check-circle"/></svg>
                 <span class="text-sm font-medium text-gray-700">今日进场</span>
                 <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{total_checked} 人</span>
             </div>
@@ -230,7 +230,7 @@ def expiring_summary(db: Session = Depends(get_db)):
         return """
         <div class="bg-white rounded-xl shadow-sm border border-gray-100">
             <div class="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
-                <span class="text-base">✅</span>
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><use href="#icon-check-circle"/></svg>
                 <span class="text-sm font-medium text-gray-700">即将到期</span>
             </div>
             <div class="px-4 py-6 text-center text-gray-400 text-xs">近期无到期提醒</div>
@@ -239,11 +239,11 @@ def expiring_summary(db: Session = Depends(get_db)):
 
     rows_html = ""
     for item in items:
-        type_icon = {"会籍": "🎫", "课程": "📚", "会员": "👤"}.get(item["type"], "📌")
+        type_cls = {"会籍": "bg-purple-100 text-purple-700", "课程": "bg-blue-100 text-blue-700", "会员": "bg-green-100 text-green-700"}.get(item["type"], "bg-gray-100 text-gray-600")
         rows_html += f"""
         <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
             <div class="flex items-center gap-2">
-                <span>{type_icon}</span>
+                <span class="text-xs px-1.5 py-0.5 rounded {type_cls}">{item['type'][:1]}</span>
                 <span class="text-xs font-medium text-gray-800">{item["member_name"]}</span>
                 <span class="text-xs text-gray-400">{item["item_name"]}</span>
             </div>
@@ -255,7 +255,7 @@ def expiring_summary(db: Session = Depends(get_db)):
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
         <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="text-base">⚠️</span>
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><use href="#icon-bell"/></svg>
                 <span class="text-sm font-medium text-gray-700">即将到期</span>
                 <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{count} 项</span>
             </div>
@@ -331,7 +331,7 @@ def dashboard_trends(db: Session = Depends(get_db)):
     return f"""
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
         <div class="flex items-center gap-2 mb-3">
-            <span class="text-base">📈</span>
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><use href="#icon-trending-up"/></svg>
             <span class="text-sm font-medium text-gray-700">近7日趋势</span>
         </div>
         <div class="flex items-end gap-1 min-h-[100px]">

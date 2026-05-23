@@ -187,27 +187,47 @@ def register_member_tools() -> List[ToolDefinition]:
             db.close()
     
     def get_member_balance(member_id: str) -> ToolResult:
-        """查询会员储值余额"""
+        """查询会员储值余额（已废弃，请使用 get_member_balances）"""
+        return get_member_balances(member_ids=member_id)
+
+    def get_member_balances(
+        member_ids: str = "",
+        keyword: str = "",
+        status: str = "",
+        page_size: int = 9999,
+    ) -> ToolResult:
+        """查询会员储值余额。不传参数时返回全部会员余额；传 member_ids 查指定会员；传 keyword/status 筛选查询"""
         db = _get_db_session()
         try:
-            # 从会员表拿余额
-            m = db.query(Member).filter(Member.member_id == member_id).first()
-            if not m:
-                return ToolResult.fail(f"会员 {member_id} 未找到")
-            # 计算剩余储值
-            from sqlalchemy import func
-            total_recharge = db.query(func.coalesce(func.sum(Recharge.amount), 0)).filter(
-                Recharge.member_id == member_id,
-                Recharge.payment_method != "扣次",
-            ).scalar()
-            return ToolResult.ok(data={
-                "member_id": member_id,
-                "name": m.name,
-                "total_recharge": float(total_recharge),
-            })
+            from sqlalchemy import func, select
+            query = db.query(
+                Member.member_id,
+                Member.name,
+                func.coalesce(func.sum(Recharge.amount), 0).label("total_recharge"),
+            ).outerjoin(
+                Recharge,
+                (Recharge.member_id == Member.member_id) & (Recharge.payment_method != "扣次"),
+            )
+            if member_ids:
+                ids = [mid.strip() for mid in member_ids.split(",") if mid.strip()]
+                query = query.filter(Member.member_id.in_(ids))
+            if keyword:
+                query = query.filter(
+                    Member.name.like(f"%{keyword}%") |
+                    Member.phone.like(f"%{keyword}%") |
+                    Member.member_id.like(f"%{keyword}%")
+                )
+            if status:
+                query = query.filter(Member.status == status)
+            rows = query.group_by(Member.member_id, Member.name).order_by(Member.id.desc()).limit(page_size).all()
+            items = [
+                {"member_id": r.member_id, "name": r.name, "total_recharge": float(r.total_recharge or 0)}
+                for r in rows
+            ]
+            return ToolResult.ok(data={"total": len(items), "items": items})
         finally:
             db.close()
-    
+
     return [
         ToolDefinition(
             name="get_member",
@@ -299,16 +319,18 @@ def register_member_tools() -> List[ToolDefinition]:
             tags=["删除", "会员", "危险"],
         ),
         ToolDefinition(
-            name="get_member_balance",
-            description="查询会员储值余额",
+            name="get_member_balances",
+            description="查询会员储值余额。不传参数时返回全部会员余额！传 member_ids 指定会员（逗号分隔），传 keyword 按姓名/手机号搜索",
             input_schema={
                 "type": "object",
-                "required": ["member_id"],
                 "properties": {
-                    "member_id": {"type": "string", "description": "会员编号"},
+                    "member_ids": {"type": "string", "description": "会员编号，逗号分隔。如 'M001' 或 'M001,M002,M003'。不传则查全部"},
+                    "keyword": {"type": "string", "description": "搜索关键词(姓名/手机/编号)"},
+                    "status": {"type": "string", "description": "会员状态筛选"},
+                    "page_size": {"type": "integer", "description": "最多返回条数", "default": 9999},
                 },
             },
-            handler=get_member_balance,
+            handler=get_member_balances,
             permission_mode=PermissionMode.READ_ONLY,
             category="会员管理",
             tags=["储值", "余额"],
