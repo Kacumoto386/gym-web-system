@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.8.2 — 数据导入模块（模板下载 / Excel 上传 / 进度跟踪 / 历史记录）",
-    version="3.8.2",
+    description="Web 版健身管理系统 V3.8.4 — 导入结果下载（成功/失败数据导出 XLSX）",
+    version="3.8.4",
 )
 
 # 模板
@@ -527,7 +527,7 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.8.2", "system_name": name}
+    return {"status": "ok", "version": "3.8.4", "system_name": name}
 
 
 # 路由注册

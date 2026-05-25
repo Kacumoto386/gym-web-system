@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, R
 from fastapi.responses import HTMLResponse, Response, JSONResponse
 from sqlalchemy.orm import Session
 from backend.database import get_db, SessionLocal
-from backend.models.models import ImportTask, Member, Staff, Course
+from backend.models.models import ImportTask, Member, Staff, Course, MembershipCard, Sale
 from backend.services.id_gen import generate_id
 from backend.routers.export_data import CN_NAMES
 from openpyxl import load_workbook, Workbook
@@ -35,8 +35,6 @@ IMPORT_FIELDS = {
         ("body_fat", "体脂率(%)", False),
         ("level", "会员等级", False),
         ("status", "状态", False),
-        ("start_date", "开卡日期", False),
-        ("end_date", "到期日期", False),
         ("source", "客户来源", False),
         ("staff_id", "跟进员工编号", False),
         ("remark", "备注", False),
@@ -56,16 +54,32 @@ IMPORT_FIELDS = {
         ("sale_commission_rate", "售课提成比例(%)", False),
         ("class_commission_rate", "上课提成比例(%)", False),
     ],
-    "course": [
-        ("name", "课程名称*", True),
-        ("sport_type", "运动项目", False),
-        ("course_type", "课程类型", False),
-        ("standard_hours", "标准课时", False),
-        ("standard_price", "标准售价", False),
-        ("discount_price", "优惠售价", False),
-        ("valid_days", "有效期(天)", False),
+    "membership_card": [
+        ("member_phone", "会员手机号*", True),
+        ("member_name", "会员姓名*", True),
+        ("card_type", "会籍类型", False),
+        ("card_name", "卡名称", False),
+        ("duration_days", "有效期(天)", False),
+        ("price", "售价", False),
+        ("start_date", "有效期起", False),
+        ("end_date", "有效期止", False),
         ("status", "状态", False),
-        ("coach", "教练", False),
+        ("remark", "备注", False),
+    ],
+    "sold_lesson": [
+        ("member_phone", "会员手机号*", True),
+        ("member_name", "会员姓名*", True),
+        ("course_name", "课程名称", False),
+        ("sale_date", "售课日期", False),
+        ("bought_hours", "购买课时", False),
+        ("bonus_hours", "赠送课时", False),
+        ("total_hours", "总课时", False),
+        ("unit_price", "单价", False),
+        ("total_price", "总价", False),
+        ("actual_amount", "实收金额", False),
+        ("payment_method", "付款方式", False),
+        ("staff_id", "销售员工编号", False),
+        ("remark", "备注", False),
     ],
 }
 
@@ -79,7 +93,7 @@ TYPE_CONFIG = {
     "member": {
         "model": Member,
         "id_prefix": "M",
-        "key_field": "phone",
+        "key_field": None,  # None = 严格校验后新建（不允许重复）
         "name": "会员",
     },
     "staff": {
@@ -88,26 +102,34 @@ TYPE_CONFIG = {
         "key_field": "phone",
         "name": "员工",
     },
-    "course": {
-        "model": Course,
-        "id_prefix": "C",
-        "key_field": "name",
-        "name": "课程",
+    "membership_card": {
+        "model": MembershipCard,
+        "id_prefix": "MC",
+        "key_field": None,  # 始终 INSERT
+        "name": "已售会籍卡",
+    },
+    "sold_lesson": {
+        "model": Sale,
+        "id_prefix": "SL",
+        "key_field": None,  # 始终 INSERT
+        "name": "已售私教课",
     },
 }
 
 # Date fields per type (these need date parsing)
 DATE_FIELDS = {
-    "member": {"birth_date", "start_date", "end_date"},
+    "member": {"birth_date"},
     "staff": {"birth_date", "hire_date"},
-    "course": set(),
+    "membership_card": {"start_date", "end_date"},
+    "sold_lesson": {"sale_date"},
 }
 
 # Decimal fields per type
 DECIMAL_FIELDS = {
     "member": {"height", "weight", "body_fat"},
     "staff": {"base_salary", "sale_commission_rate", "class_commission_rate"},
-    "course": {"standard_price", "discount_price"},
+    "membership_card": {"price"},
+    "sold_lesson": {"unit_price", "total_price", "actual_amount"},
 }
 
 # Protected fields per type (never overwritten during upsert)
@@ -120,8 +142,12 @@ PROTECTED_FIELDS = {
               "total_commission", "month_sale_amount", "month_class_count",
               "month_sale_commission", "month_class_commission", "month_total_commission",
               "today_class_count", "created_at", "updated_at"},
-    "course": {"course_id", "max_bookings", "location", "description",
-               "remark", "store_id", "wristband_id", "created_at"},
+    "membership_card": {"id", "card_id", "member_id", "is_product", "consumed_amount",
+                        "voided", "void_reason", "void_time", "void_operator", "created_at"},
+    "sold_lesson": {"id", "sale_id", "member_id", "member_name", "member_phone",
+                    "commission_rate", "commission_amount", "operator",
+                    "deposit", "discount", "payment_status", "balance_due",
+                    "voided", "void_reason", "void_time", "void_operator", "created_at"},
 }
 
 
@@ -159,7 +185,7 @@ def _parse_cell_value(val, field: str, import_type: str):
 
 
 def _type_name_cn(import_type: str) -> str:
-    names = {"member": "会员", "staff": "员工", "course": "课程"}
+    names = {"member": "会员", "staff": "员工", "membership_card": "会籍卡", "sold_lesson": "私教课"}
     return names.get(import_type, import_type)
 
 
@@ -222,14 +248,19 @@ def _get_hint_row(import_type: str) -> list:
         "member": [
             "张三", "13800138000", "男", "1990-01-01",
             "170", "65", "15", "普通", "正常",
-            "2025-01-01", "2025-12-31", "门店推广", "S20250101001", "无", "",
+            "门店推广", "S20250101001", "无", "",
         ],
         "staff": [
             "李四", "13900139000", "男", "1995-06-15",
             "教练", "2025-03-01", "5000", "在职", "", "", "30", "50",
         ],
-        "course": [
-            "减脂塑形课", "健身", "私教课", "24", "3000", "2500", "90", "上架", "王教练",
+        "membership_card": [
+            "13800138000", "张三", "年卡", "黄金年卡", "365", "3000",
+            "2025-01-01", "2025-12-31", "正常", "",
+        ],
+        "sold_lesson": [
+            "13800138000", "张三", "减脂塑形课", "2025-01-15", "24", "0", "24",
+            "125", "3000", "3000", "微信", "S20250101001", "",
         ],
     }
     return hints.get(import_type, [])
@@ -306,8 +337,28 @@ def upload_import_file(
             if val is None or (isinstance(val, str) and val.strip() == ""):
                 errors.append({"row": ri, "field": fld, "message": f"「{dict(IMPORT_FIELDS[import_type])[fld]}」不能为空"})
                 row_valid = False
-        if row_valid:
-            all_rows.append(row_data)
+        if not row_valid:
+            continue
+
+        # 会员类导入：校验会员存在性（membership_card / sold_lesson 需要手机号和姓名匹配）
+        if import_type in ("membership_card", "sold_lesson"):
+            phone = row_data.get("member_phone")
+            name = row_data.get("member_name")
+            if phone:
+                member = db.query(Member).filter(Member.phone == phone).first()
+                if not member:
+                    errors.append({"row": ri, "field": "member_phone", "message": f"手机号「{phone}」对应的会员不存在"})
+                    continue
+                if name and member.name != name:
+                    errors.append({"row": ri, "field": "member_name", "message": f"会员姓名不匹配，系统记录为「{member.name}」"})
+                    continue
+                # 注入 member_id 供后续使用
+                row_data["member_id"] = member.member_id
+                # membership_card 表需要 member_name 精确匹配
+                if import_type == "membership_card":
+                    row_data["member_name"] = member.name
+
+        all_rows.append(row_data)
 
     if not all_rows:
         raise HTTPException(400, "没有有效的数据行")
@@ -429,21 +480,50 @@ def _run_import(task_id: str, import_type: str):
         updated = 0
         skipped = 0
 
+        # 会员导入：严格防重复 — 整批校验 phone / name
+        if import_type == "member":
+            duplicate_found = False
+            for row in rows_data:
+                phone = str(row.get("phone") or "").strip()
+                name = str(row.get("name") or "").strip()
+                if phone:
+                    if db.query(Member).filter(Member.phone == phone).first():
+                        error_list.append({"row": 1, "message": f"手机号「{phone}」已存在，会员导入不允许重复"})
+                        duplicate_found = True
+                        break
+                if name:
+                    if db.query(Member).filter(Member.name == name).first():
+                        error_list.append({"row": 1, "message": f"姓名「{name}」已存在，会员导入不允许重复"})
+                        duplicate_found = True
+                        break
+            if duplicate_found:
+                task.status = "failed"
+                task.error_count = len(error_list)
+                task.errors = json.dumps(error_list, ensure_ascii=False)
+                db.commit()
+                return
+
         for i, row in enumerate(rows_data):
             try:
-                key_val = row.get(key_field)
-                if not key_val or (isinstance(key_val, str) and key_val.strip() == ""):
-                    error_list.append({"row": i + 2, "field": key_field, "message": "匹配字段为空"})
-                    skipped += 1
-                    continue
+                if key_field:
+                    # UPSERT 模式（仅 staff 使用）
+                    key_val = row.get(key_field)
+                    if not key_val or (isinstance(key_val, str) and key_val.strip() == ""):
+                        error_list.append({"row": i + 2, "field": key_field, "message": "匹配字段为空"})
+                        skipped += 1
+                        continue
 
-                key_val = str(key_val).strip()
-                existing = _find_existing(db, import_type, key_field, key_val)
+                    key_val = str(key_val).strip()
+                    existing = _find_existing(db, import_type, key_field, key_val)
 
-                if existing:
-                    _update_record(existing, row, key_field, protected)
-                    updated += 1
+                    if existing:
+                        _update_record(existing, row, key_field, protected)
+                        updated += 1
+                    else:
+                        _create_record(db, import_type, row)
+                        created += 1
                 else:
+                    # INSERT 模式（member / membership_card / sold_lesson）
                     _create_record(db, import_type, row)
                     created += 1
 
@@ -487,12 +567,8 @@ def _run_import(task_id: str, import_type: str):
 
 def _find_existing(db: Session, import_type: str, key_field: str, key_val: str):
     """查找已有记录（用于 upsert）"""
-    if import_type == "member":
-        return db.query(Member).filter(Member.phone == key_val).first()
-    elif import_type == "staff":
+    if import_type == "staff":
         return db.query(Staff).filter(Staff.phone == key_val).first()
-    elif import_type == "course":
-        return db.query(Course).filter(Course.name == key_val).first()
     return None
 
 
@@ -513,13 +589,23 @@ def _create_record(db: Session, import_type: str, row: dict):
     elif import_type == "staff":
         new_id = generate_id("S", db, Staff.staff_id)
         obj = Staff(staff_id=new_id)
-    elif import_type == "course":
-        new_id = generate_id("C", db, Course.course_id)
-        obj = Course(course_id=new_id)
+    elif import_type == "membership_card":
+        new_id = generate_id("MC", db, MembershipCard.card_id)
+        obj = MembershipCard(card_id=new_id, is_product=0)
+    elif import_type == "sold_lesson":
+        new_id = generate_id("SL", db, Sale.sale_id)
+        obj = Sale(sale_id=new_id)
     else:
         return
 
+    # 仅跳过目标表中不存在的字段
+    skip_fields = set()
+    if import_type == "membership_card":
+        skip_fields.add("member_phone")  # MembershipCard 表没有 member_phone 列
+
     for field, val in row.items():
+        if field in skip_fields:
+            continue
         if val is not None:
             setattr(obj, field, val)
     db.add(obj)
@@ -552,10 +638,129 @@ def get_import_progress(task_id: str, db: Session = Depends(get_db)):
 
 
 # ═══════════════════════════════════════════
+# 导出导入结果 — GET /api/import/{task_id}/export
+# ═══════════════════════════════════════════
+
+@router.get("/{task_id}/export")
+def export_import_result(task_id: str, db: Session = Depends(get_db)):
+    """下载导入结果 XLSX（成功数据 + 失败数据 + 错误信息）"""
+    task = db.query(ImportTask).filter(ImportTask.task_id == task_id).first()
+    if not task:
+        raise HTTPException(404, "导入任务不存在")
+
+    all_rows = json.loads(task.preview_data or "[]")
+    error_list = json.loads(task.errors or "[]")
+    if not all_rows:
+        raise HTTPException(400, "没有可导出的数据")
+
+    # 构建字段→中文名映射
+    field_to_cn = {fld: hdr for fld, hdr, _ in IMPORT_FIELDS.get(task.import_type, [])}
+
+    # 提取失败行索引（error.row 是 Excel 行号 = 数据索引 + 2）
+    failed_indices = set()
+    row_error_map = {}
+    batch_errors = []
+    for err in error_list:
+        r = err.get("row", 0)
+        if r >= 2:
+            idx = r - 2
+            failed_indices.add(idx)
+            row_error_map.setdefault(idx, []).append(err.get("message", ""))
+        else:
+            batch_errors.append(err.get("message", ""))
+
+    # 分离成功/失败行
+    success_rows = []
+    failed_rows = []
+    if task.status == "failed" and batch_errors:
+        # 批处理失败（如会员重复）：所有行归入失败 sheet
+        batch_msg = "；".join(batch_errors)
+        for i, row in enumerate(all_rows):
+            if i in failed_indices:
+                failed_rows.append((row, "；".join(row_error_map[i])))
+            else:
+                failed_rows.append((row, batch_msg))
+    else:
+        for i, row in enumerate(all_rows):
+            if i in failed_indices:
+                failed_rows.append((row, "；".join(row_error_map.get(i, []))))
+            else:
+                success_rows.append(row)
+
+    # 生成 XLSX
+    wb = Workbook()
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center")
+
+    fields = [fld for fld, _, _ in IMPORT_FIELDS.get(task.import_type, [])]
+    headers = [field_to_cn.get(f, f) for f in fields]
+
+    def _write_sheet(ws, title, data_rows, extra_col=None):
+        ws.title = title
+        cols = headers + ([extra_col] if extra_col else [])
+        for ci, h in enumerate(cols, 1):
+            cell = ws.cell(row=1, column=ci, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+
+        for ri, row_data in enumerate(data_rows, 2):
+            if isinstance(row_data, tuple):
+                row_dict, extra_val = row_data
+            else:
+                row_dict, extra_val = row_data, None
+
+            for ci, fld in enumerate(fields, 1):
+                val = row_dict.get(fld)
+                if val is None:
+                    val = ""
+                elif isinstance(val, (date, datetime)):
+                    val = val.isoformat()
+                ws.cell(row=ri, column=ci, value=val)
+
+            if extra_col and extra_val is not None:
+                ws.cell(row=ri, column=len(cols), value=extra_val)
+
+        for ci, h in enumerate(cols, 1):
+            ws.column_dimensions[chr(64 + ci) if ci <= 26 else 'A'].width = max(12, min(len(h) * 2 + 4, 40))
+
+    # Sheet 1: 成功导入
+    ws_success = wb.active
+    _write_sheet(ws_success, "成功导入", success_rows)
+
+    # Sheet 2: 导入失败
+    if failed_rows:
+        ws_fail = wb.create_sheet()
+        _write_sheet(ws_fail, "导入失败", failed_rows, extra_col="错误信息")
+    else:
+        ws_fail = wb.create_sheet()
+        ws_fail.title = "导入失败"
+        for ci, h in enumerate(headers + ["错误信息"], 1):
+            cell = ws_fail.cell(row=1, column=ci, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+        ws_fail.cell(row=2, column=1, value="无失败记录")
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    ascii_name = f"import_result_{task_id}.xlsx"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{ascii_name}"',
+        },
+    )
+
+
+# ═══════════════════════════════════════════
 # 导入历史 — HTMX 表格
 # ═══════════════════════════════════════════
 
-TYPE_CN = {"member": "会员", "staff": "员工", "course": "课程"}
+TYPE_CN = {"member": "会员", "staff": "员工", "membership_card": "会籍卡", "sold_lesson": "私教课"}
 STATUS_CN = {
     "pending": "等待中", "parsing": "解析中", "confirming": "待确认",
     "processing": "导入中", "completed": "已完成", "failed": "失败",
@@ -581,13 +786,16 @@ def import_history_table(db: Session = Depends(get_db)):
         type_cn = TYPE_CN.get(t.import_type, t.import_type)
         completed = t.completed_at.strftime('%Y-%m-%d %H:%M') if t.completed_at else '-'
 
-        # 操作按钮：待确认 → 可执行
+        # 操作按钮：待确认 → 可执行；已完成/失败 → 可下载
         if t.status == "confirming":
             action_btn = f"""<button class="text-blue-600 hover:text-blue-800 text-xs"
                 hx-post="/api/import/{t.task_id}/execute"
                 hx-swap="none"
                 hx-on::after-request="if(event.detail.successful){{ htmx.ajax('GET','/api/import/history/table',{{target:'#historyTable',swap:'innerHTML'}}); alert('导入任务已启动'); }}">
                 执行导入</button>"""
+        elif t.status in ("completed", "failed") and t.preview_data:
+            action_btn = f"""<a href="/api/import/{t.task_id}/export"
+                class="text-green-600 hover:text-green-800 text-xs underline">下载结果</a>"""
         else:
             action_btn = '<span class="text-gray-400 text-xs">-</span>'
 
