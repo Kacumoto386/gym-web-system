@@ -61,15 +61,22 @@ IMPORT_FIELDS = {
         ("card_name", "卡名称", False),
         ("duration_days", "有效期(天)", False),
         ("price", "售价", False),
+        ("actual_amount", "实收金额*", True),
         ("start_date", "有效期起", False),
         ("end_date", "有效期止", False),
+        ("total_classes", "购买次数", False),
+        ("bonus_classes", "赠送次数", False),
+        ("face_value", "面值/余额总额", False),
+        ("consumed_amount", "已消费金额", False),
         ("status", "状态", False),
         ("remark", "备注", False),
+        ("staff_phone", "销售员手机号", False),
     ],
     "sold_lesson": [
         ("member_phone", "会员手机号*", True),
         ("member_name", "会员姓名*", True),
         ("course_name", "课程名称", False),
+        ("course_type", "课程种类", False),
         ("sale_date", "售课日期", False),
         ("bought_hours", "购买课时", False),
         ("bonus_hours", "赠送课时", False),
@@ -78,7 +85,7 @@ IMPORT_FIELDS = {
         ("total_price", "总价", False),
         ("actual_amount", "实收金额", False),
         ("payment_method", "付款方式", False),
-        ("staff_id", "销售员工编号", False),
+        ("staff_phone", "销售员手机号", False),
         ("remark", "备注", False),
     ],
 }
@@ -128,7 +135,7 @@ DATE_FIELDS = {
 DECIMAL_FIELDS = {
     "member": {"height", "weight", "body_fat"},
     "staff": {"base_salary", "sale_commission_rate", "class_commission_rate"},
-    "membership_card": {"price"},
+    "membership_card": {"price", "face_value", "consumed_amount", "actual_amount"},
     "sold_lesson": {"unit_price", "total_price", "actual_amount"},
 }
 
@@ -142,7 +149,7 @@ PROTECTED_FIELDS = {
               "total_commission", "month_sale_amount", "month_class_count",
               "month_sale_commission", "month_class_commission", "month_total_commission",
               "today_class_count", "created_at", "updated_at"},
-    "membership_card": {"id", "card_id", "member_id", "is_product", "consumed_amount",
+    "membership_card": {"id", "card_id", "member_id", "is_product",
                         "voided", "void_reason", "void_time", "void_operator", "created_at"},
     "sold_lesson": {"id", "sale_id", "member_id", "member_name", "member_phone",
                     "commission_rate", "commission_amount", "operator",
@@ -255,12 +262,12 @@ def _get_hint_row(import_type: str) -> list:
             "教练", "2025-03-01", "5000", "在职", "", "", "30", "50",
         ],
         "membership_card": [
-            "13800138000", "张三", "年卡", "黄金年卡", "365", "3000",
-            "2025-01-01", "2025-12-31", "正常", "",
+            "13800138000", "张三", "年卡", "黄金年卡", "365", "3000", "3000",
+            "2025-01-01", "2025-12-31", "", "", "", "", "正常", "", "",
         ],
         "sold_lesson": [
-            "13800138000", "张三", "减脂塑形课", "2025-01-15", "24", "0", "24",
-            "125", "3000", "3000", "微信", "S20250101001", "",
+            "13800138000", "张三", "减脂塑形课", "私教课", "2025-01-15", "24", "0", "24",
+            "125", "3000", "3000", "微信", "13800138001", "",
         ],
     }
     return hints.get(import_type, [])
@@ -357,6 +364,16 @@ def upload_import_file(
                 # membership_card 表需要 member_name 精确匹配
                 if import_type == "membership_card":
                     row_data["member_name"] = member.name
+
+            # 销售员手机号 → 查找 Staff
+            staff_phone = row_data.get("staff_phone")
+            if staff_phone:
+                staff = db.query(Staff).filter(Staff.phone == staff_phone).first()
+                if not staff:
+                    errors.append({"row": ri, "field": "staff_phone", "message": f"销售员手机号「{staff_phone}」对应的员工不存在"})
+                    continue
+                row_data["staff_id"] = staff.staff_id
+                row_data["staff_name"] = staff.name
 
         all_rows.append(row_data)
 
@@ -601,7 +618,9 @@ def _create_record(db: Session, import_type: str, row: dict):
     # 仅跳过目标表中不存在的字段
     skip_fields = set()
     if import_type == "membership_card":
-        skip_fields.add("member_phone")  # MembershipCard 表没有 member_phone 列
+        skip_fields.update({"member_phone", "staff_phone"})  # 两字段均不在 MembershipCard 表中
+    if import_type == "sold_lesson":
+        skip_fields.add("staff_phone")  # staff_phone 仅用于查找，不直接存储
 
     for field, val in row.items():
         if field in skip_fields:
@@ -609,6 +628,22 @@ def _create_record(db: Session, import_type: str, row: dict):
         if val is not None:
             setattr(obj, field, val)
     db.add(obj)
+
+    # 卡种联动：更新会员资产
+    if import_type == "membership_card":
+        card_type = str(row.get("card_type") or "").strip()
+        member_id = row.get("member_id")
+        if member_id:
+            member = db.query(Member).filter(Member.member_id == member_id).first()
+            if member:
+                if card_type in ("次卡",):
+                    add_classes = (row.get("total_classes") or 0) + (row.get("bonus_classes") or 0)
+                    if add_classes:
+                        member.remaining_lessons = (member.remaining_lessons or 0) + add_classes
+                elif card_type in ("现金卡", "现金"):
+                    price_val = row.get("price") or 0
+                    if price_val > 0:
+                        member.balance = (member.balance or 0) + Decimal(str(price_val))
 
 
 # ═══════════════════════════════════════════

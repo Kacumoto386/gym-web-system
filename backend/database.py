@@ -41,3 +41,23 @@ def init_db():
             conn.commit()
         except Exception:
             pass  # 字段已存在
+        try:
+            conn.execute(text("ALTER TABLE sale ADD COLUMN course_type VARCHAR(50) DEFAULT ''"))
+            conn.commit()
+        except Exception:
+            pass  # 字段已存在
+        try:
+            conn.execute(text("ALTER TABLE membership_card ADD COLUMN actual_amount DECIMAL(10,2) DEFAULT 0"))
+            conn.commit()
+        except Exception:
+            pass  # 字段已存在
+        try:
+            conn.execute(text("ALTER TABLE membership_card ADD COLUMN staff_id VARCHAR(20) DEFAULT ''"))
+            conn.commit()
+        except Exception:
+            pass  # 字段已存在
+        try:
+            conn.execute(text("ALTER TABLE membership_card ADD COLUMN staff_name VARCHAR(50) DEFAULT ''"))
+            conn.commit()
+        except Exception:
+            pass  # 字段已存在
