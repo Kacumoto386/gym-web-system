@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Test Marked</title></head>
+<body>
+<h2>测试 marked.js 渲染</h2>
+
+<div id="output1" style="border:1px solid #ccc;padding:10px;margin:10px"></div>
+<div id="output2" style="border:1px solid #ccc;padding:10px;margin:10px"></div>
+<div id="output3" style="border:1px solid #ccc;padding:10px;margin:10px"></div>
+<div id="output4" style="border:1px solid #ccc;padding:10px;margin:10px"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+// 等待 marked 加载
+setTimeout(() => {
+    if (typeof marked === 'undefined') {
+        document.getElementById('output1').innerHTML = 'marked failed to load';
+        return;
+    }
+    
+    console.log('marked version:', marked.version || 'unknown');
+    console.log('typeof marked.parse:', typeof marked.parse);
+    console.log('typeof marked.Renderer:', typeof marked.Renderer);
+    
+    const renderer = new marked.Renderer();
+    renderer.code = function() {
+        const arg = arguments[0];
+        const text = typeof arg === 'object' ? arg.text : arg;
+        return '<pre><code>' + String(text).replace(/</g,'&lt;') + '</code></pre>';
+    };
+    renderer.table = function() {
+        const arg = arguments[0];
+        const header = typeof arg === 'object' ? arg.header : arg;
+        const body = typeof arg === 'object' ? arg.body : arguments[1];
+        return '<table><thead>'+header+'</thead><tbody>'+body+'</tbody></table>';
+    };
+    marked.setOptions({ renderer, gfm: true });
+    
+    // Test 1: 干净文本
+    const clean = '会员数据：{\n  "member_id": "M001"\n}\n\n| 字段 | 内容 |\n|------|------|\n| **姓名** | **鼠小弟** |';
+    const r1 = marked.parse(clean);
+    console.log('Test 1:', typeof r1, r1.indexOf('[object Object]') >= 0);
+    document.getElementById('output1').innerHTML = '<b>Test 1 (clean):</b><br>' + r1;
+    
+    // Test 2: 带对象文本
+    const text2 = '**会员数据：**[object Object],[object Object]undefined**';
+    const r2 = marked.parse(text2);
+    console.log('Test 2:', typeof r2);
+    document.getElementById('output2').innerHTML = '<b>Test 2 (garbage text):</b><br>' + r2;
+    
+    // Test 3: 模拟 addOrUpdateAssistant + finalize 流程
+    const reply = '会员数据：{"member_id":"M001"}\n\n| 字段 | 内容 |\n|------|------|\n| **姓名** | **鼠小弟** |';
+    
+    // 打字效果用的纯文本（转义后）
+    let chars = reply;
+    let idx = 0;
+    function typeStep() {
+        if (idx < chars.length) {
+            const end = Math.min(idx + 5, chars.length);
+            const partial = chars.substring(0, end);
+            // 打字效果：纯文本
+            document.getElementById('output3').innerHTML = '<pre>' + partial.replace(/</g,'&lt;') + '▊</pre>';
+            idx = end;
+            setTimeout(typeStep, 50);
+        } else {
+            // finalize: 渲染 markdown
+            const result = marked.parse(reply);
+            document.getElementById('output3').innerHTML = '<b>Finalized:</b><br>' + result;
+            console.log('Test 3 finalize:', typeof result, result.indexOf('[object Object]') >= 0);
+        }
+    }
+    typeStep();
+    
+    // Test 4: 直接 innerHTML = renderMarkdown(reply)
+    const r4 = marked.parse(reply);
+    document.getElementById('output4').innerHTML = '<b>Test 4 (direct):</b><br>' + r4;
+    
+}, 3000);
+</script>
+</body>
+</html>
