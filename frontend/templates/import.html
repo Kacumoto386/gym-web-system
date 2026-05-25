@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto" id="importApp">
+    <h1 class="text-2xl font-bold text-gray-800 mb-6">数据导入</h1>
+
+    <!-- 类型 Tabs -->
+    <div class="flex gap-1 mb-6 bg-white rounded-lg shadow-sm p-1">
+        <button onclick="switchType('member')"
+                class="import-tab px-5 py-2 rounded-md text-sm font-medium transition-colors bg-blue-600 text-white"
+                data-type="member">会员导入</button>
+        <button onclick="switchType('staff')"
+                class="import-tab px-5 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100"
+                data-type="staff">员工导入</button>
+        <button onclick="switchType('course')"
+                class="import-tab px-5 py-2 rounded-md text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100"
+                data-type="course">课程导入</button>
+    </div>
+
+    <!-- 操作卡片 -->
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <!-- Step 1: 下载模板 -->
+        <div class="flex items-center justify-between mb-4 pb-4 border-b">
+            <div>
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold mr-2">1</span>
+                <span class="text-sm font-medium text-gray-700">下载导入模板</span>
+                <span class="text-xs text-gray-400 ml-2">按模板格式填写数据</span>
+            </div>
+            <a id="downloadLink" href="/api/import/template/member"
+               class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors">
+                下载 Excel 模板
+            </a>
+        </div>
+
+        <!-- Step 2: 上传文件 -->
+        <div class="mb-4 pb-4 border-b">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold mr-2">2</span>
+                    <span class="text-sm font-medium text-gray-700">上传已填写的文件</span>
+                </div>
+            </div>
+            <form id="uploadForm"
+                  hx-post="/api/import/upload"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#uploadResult"
+                  hx-swap="none"
+                  hx-on::after-request="onUploadComplete(event)">
+                <input type="hidden" name="import_type" id="importTypeInput" value="member">
+                <div class="flex items-center gap-4">
+                    <input type="file" name="file" accept=".xlsx,.xls"
+                           class="text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
+                        上传并解析
+                    </button>
+                </div>
+                <p class="text-xs text-gray-400 mt-2">支持 .xlsx 格式，表头请使用下载的模板</p>
+            </form>
+            <div id="uploadResult"></div>
+        </div>
+
+        <!-- Step 3: 预览 & 执行 -->
+        <div id="execSection" class="hidden">
+            <div class="mb-3">
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold mr-2">3</span>
+                <span class="text-sm font-medium text-gray-700">确认导入</span>
+                <span class="text-xs text-gray-400 ml-2" id="previewSummary"></span>
+            </div>
+            <div class="overflow-x-auto mb-4 max-h-60 overflow-y-auto border rounded-lg" id="previewTable"></div>
+            <div class="flex items-center gap-3">
+                <button id="executeBtn"
+                        class="px-6 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    开始导入
+                </button>
+                <span class="text-xs text-gray-400">点击后将在后台执行导入，可查看实时进度</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入进度 -->
+    <div id="progressSection" class="hidden bg-white rounded-lg shadow-sm p-6 mb-6">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">导入进度</h3>
+        <div class="w-full bg-gray-200 rounded-full h-4 mb-3">
+            <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+        <div class="grid grid-cols-5 gap-4 text-center text-sm" id="progressStats">
+            <div><span class="text-gray-500">总行数</span><br><span id="statTotal" class="text-lg font-bold">0</span></div>
+            <div><span class="text-gray-500">成功</span><br><span id="statSuccess" class="text-lg font-bold text-green-600">0</span></div>
+            <div><span class="text-gray-500">失败</span><br><span id="statError" class="text-lg font-bold text-red-600">0</span></div>
+            <div><span class="text-gray-500">新建</span><br><span id="statCreated" class="text-lg font-bold text-blue-600">0</span></div>
+            <div><span class="text-gray-500">更新</span><br><span id="statUpdated" class="text-lg font-bold text-orange-600">0</span></div>
+        </div>
+        <div id="errorDetails" class="mt-3 hidden">
+            <h4 class="text-xs font-medium text-red-600 mb-1">错误详情：</h4>
+            <div id="errorList" class="text-xs text-red-500 max-h-32 overflow-y-auto"></div>
+        </div>
+        <div id="importComplete" class="hidden mt-3 text-center">
+            <span class="text-green-600 font-medium">✓ 导入完成</span>
+            <button onclick="resetImport()" class="ml-4 text-sm text-blue-600 hover:underline">继续导入</button>
+        </div>
+    </div>
+
+    <!-- 导入历史 -->
+    <div class="bg-white rounded-lg shadow-sm p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-sm font-semibold text-gray-700">导入历史</h3>
+            <button class="text-xs text-blue-600 hover:underline"
+                    hx-get="/api/import/history/table"
+                    hx-target="#historyTable"
+                    hx-swap="innerHTML">
+                刷新
+            </button>
+        </div>
+        <div id="historyTable" hx-get="/api/import/history/table" hx-trigger="load">
+            <div class="text-center py-8 text-gray-400">加载中...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTaskId = null;
+let progressInterval = null;
+
+function switchType(type) {
+    // Update tabs
+    document.querySelectorAll('.import-tab').forEach(tab => {
+        const cls = tab.dataset.type === type
+            ? 'bg-blue-600 text-white'
+            : 'text-gray-600 hover:bg-gray-100';
+        tab.className = `import-tab px-5 py-2 rounded-md text-sm font-medium transition-colors ${cls}`;
+        tab.dataset.type = type;
+    });
+
+    // Update download link and hidden input
+    document.getElementById('downloadLink').href = `/api/import/template/${type}`;
+    document.getElementById('importTypeInput').value = type;
+
+    // Reset UI
+    document.getElementById('uploadForm').classList.remove('hidden');
+    document.getElementById('uploadResult').innerHTML = '';
+    document.getElementById('execSection').classList.add('hidden');
+    document.getElementById('progressSection').classList.add('hidden');
+}
+
+function onUploadComplete(evt) {
+    const resultDiv = document.getElementById('uploadResult');
+    const xhr = evt.detail.xhr;
+
+    if (!evt.detail.successful) {
+        let msg = '上传失败，请检查文件格式和内容';
+        try {
+            const err = JSON.parse(xhr.responseText);
+            msg = err.detail || msg;
+        } catch(e) {}
+        resultDiv.innerHTML = `<div class="mt-2 p-3 bg-red-50 text-red-600 text-sm rounded-lg">${msg}</div>`;
+        return;
+    }
+
+    try {
+        const data = JSON.parse(xhr.responseText);
+        resultDiv.innerHTML = '';  // clear any previous error
+        showPreview(data);
+    } catch(e) {
+        resultDiv.innerHTML = `<div class="mt-2 p-3 bg-red-50 text-red-600 text-sm rounded-lg">响应解析失败</div>`;
+    }
+}
+
+function showPreview(data) {
+    const section = document.getElementById('execSection');
+    section.classList.remove('hidden');
+
+    document.getElementById('previewSummary').textContent =
+        `共 ${data.total_rows} 行数据${data.error_count > 0 ? `，${data.error_count} 行有错误` : ''}`;
+
+    // Build preview table
+    let html = '<table class="w-full text-xs"><thead class="bg-gray-50 text-left text-gray-500 uppercase sticky top-0"><tr>';
+    for (const name of data.header_names) {
+        html += `<th class="px-3 py-2 whitespace-nowrap">${name}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+
+    for (const row of data.preview) {
+        html += '<tr class="border-b hover:bg-gray-50">';
+        for (const field of data.header_fields) {
+            let val = row[field];
+            if (val === null || val === undefined) val = '';
+            html += `<td class="px-3 py-2 whitespace-nowrap">${String(val)}</td>`;
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('previewTable').innerHTML = html;
+
+    currentTaskId = data.task_id;
+    const btn = document.getElementById('executeBtn');
+    btn.disabled = false;
+    btn.onclick = function() { startImport(data.task_id); };
+}
+
+function startImport(taskId) {
+    const btn = document.getElementById('executeBtn');
+    btn.disabled = true;
+    btn.textContent = '启动中...';
+
+    fetch(`/api/import/${taskId}/execute`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('execSection').classList.add('hidden');
+                document.getElementById('progressSection').classList.remove('hidden');
+                pollProgress(taskId);
+            } else {
+                alert('启动失败');
+                btn.disabled = false;
+                btn.textContent = '开始导入';
+            }
+        })
+        .catch(e => {
+            alert('启动失败: ' + e.message);
+            btn.disabled = false;
+            btn.textContent = '开始导入';
+        });
+}
+
+function pollProgress(taskId) {
+    if (progressInterval) clearInterval(progressInterval);
+
+    progressInterval = setInterval(() => {
+        fetch(`/api/import/${taskId}/progress`)
+            .then(r => r.json())
+            .then(data => {
+                updateProgress(data);
+                if (data.status === 'completed' || data.status === 'failed') {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                    onImportComplete(data);
+                }
+            })
+            .catch(() => {});
+    }, 1500);
+}
+
+function updateProgress(data) {
+    const total = data.total_rows || 1;
+    const done = data.success_count + data.error_count + data.skipped_count;
+    const pct = Math.min(100, Math.round(done / total * 100));
+
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('statTotal').textContent = data.total_rows;
+    document.getElementById('statSuccess').textContent = data.success_count;
+    document.getElementById('statError').textContent = data.error_count;
+    document.getElementById('statCreated').textContent = data.created_count;
+    document.getElementById('statUpdated').textContent = data.updated_count;
+
+    if (data.errors && data.errors.length > 0) {
+        document.getElementById('errorDetails').classList.remove('hidden');
+        document.getElementById('errorList').innerHTML = data.errors.map(e =>
+            `<div class="py-0.5">第 ${e.row} 行: ${e.message}</div>`
+        ).join('');
+    }
+}
+
+function onImportComplete(data) {
+    document.getElementById('importComplete').classList.remove('hidden');
+    if (data.status === 'failed') {
+        document.getElementById('progressBar').className = 'bg-red-600 h-4 rounded-full transition-all duration-500';
+    }
+    // Refresh history
+    htmx.ajax('GET', '/api/import/history/table', { target: '#historyTable', swap: 'innerHTML' });
+}
+
+function resetImport() {
+    document.getElementById('progressSection').classList.add('hidden');
+    document.getElementById('importComplete').classList.add('hidden');
+    document.getElementById('uploadForm').classList.remove('hidden');
+    document.getElementById('uploadResult').innerHTML = '';
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressBar').className = 'bg-blue-600 h-4 rounded-full transition-all duration-500';
+}
+</script>
+{% endblock %}

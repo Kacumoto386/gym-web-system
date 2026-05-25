@@ -614,6 +614,28 @@ class FinanceExpense(Base):
 # 9. 系统
 # ═══════════════════════════════════════════
 
+class ImportTask(Base):
+    """数据导入任务跟踪"""
+    __tablename__ = "import_task"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(String(20), unique=True, nullable=False, comment="任务编号")
+    import_type = Column(String(20), nullable=False, comment="导入类型(member/staff/course)")
+    status = Column(String(20), default="pending", comment="状态: pending/parsing/confirming/processing/completed/failed")
+    total_rows = Column(Integer, default=0, comment="总行数")
+    success_count = Column(Integer, default=0, comment="成功数")
+    error_count = Column(Integer, default=0, comment="失败数")
+    created_count = Column(Integer, default=0, comment="新建数")
+    updated_count = Column(Integer, default=0, comment="更新数")
+    skipped_count = Column(Integer, default=0, comment="跳过数")
+    errors = Column(Text, default="", comment="错误详情(JSON)")
+    preview_data = Column(Text, default="", comment="预览数据(JSON)")
+    filename = Column(String(200), default="", comment="文件名")
+    operator = Column(String(50), default="", comment="操作人")
+    created_at = Column(DateTime, default=datetime.now)
+    completed_at = Column(DateTime, nullable=True, comment="完成时间")
+
+
 class OperationLog(Base):
     """操作日志"""
     __tablename__ = "operation_log"

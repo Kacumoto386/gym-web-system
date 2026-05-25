@@ -20,11 +20,9 @@ router = APIRouter(prefix="/api/recharges", tags=["充值管理"])
 # HTMX HTML 片段
 # ═══════════════════════════════════════════
 
-def _build_table(rows: list, balance_map: dict = None) -> str:
+def _build_table(rows: list) -> str:
     if not rows:
         return '<div class="text-center py-8 text-gray-400">暂无充值记录</div>'
-    if balance_map is None:
-        balance_map = {}
     trs = ""
     for r in rows:
         voided = getattr(r, 'voided', 0)
@@ -36,7 +34,7 @@ def _build_table(rows: list, balance_map: dict = None) -> str:
             badge = ' <span class="inline-block bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded ml-1">已作废</span>'
             actions = '<span class="text-gray-400 text-xs">已作废</span>'
         expiry = r.expiry_date.strftime('%Y-%m-%d') if r.expiry_date else ''
-        balance = balance_map.get(r.member_id, '')
+        order_balance = (r.amount or 0) + (r.bonus or 0)
         trs += f"""<tr class="{tr_class}">
             <td class="px-4 py-3 text-sm text-gray-500">{r.recharge_id}</td>
             <td class="px-4 py-3">{r.member_name or ''}{badge}</td>
@@ -49,7 +47,7 @@ def _build_table(rows: list, balance_map: dict = None) -> str:
             <td class="px-4 py-3 text-sm">{r.recharge_type or ''}</td>
             <td class="px-4 py-3 text-sm">{r.operator_id or ''}</td>
             <td class="px-4 py-3 text-sm">{expiry}</td>
-            <td class="px-4 py-3 text-sm font-medium">{balance}</td>
+            <td class="px-4 py-3 text-sm font-medium">¥{'%.2f' % order_balance}</td>
             <td class="px-4 py-3 text-sm">
                 {actions}
             </td>
@@ -67,12 +65,7 @@ def recharge_table(member_id: str = "", db: Session = Depends(get_db)):
     query = db.query(Recharge).filter(Recharge.voided == 0)
     if member_id:
         query = query.filter(Recharge.member_id == member_id)
-    rows = query.order_by(Recharge.recharge_date.desc()).limit(100).all()
-    # 预加载会员余额
-    mids = {r.member_id for r in rows}
-    members = db.query(Member).filter(Member.member_id.in_(mids)).all()
-    balance_map = {m.member_id: f'¥{m.balance:.2f}' if m.balance else '¥0.00' for m in members}
-    return _build_table(rows, balance_map)
+    return _build_table(query.order_by(Recharge.recharge_date.desc()).limit(100).all())
 
 
 @router.get("/voided/table", response_class=HTMLResponse)
@@ -81,11 +74,7 @@ def voided_recharge_table(member_id: str = "", db: Session = Depends(get_db)):
     query = db.query(Recharge).filter(Recharge.voided == 1)
     if member_id:
         query = query.filter(Recharge.member_id == member_id)
-    rows = query.order_by(Recharge.recharge_date.desc()).limit(100).all()
-    mids = {r.member_id for r in rows}
-    members = db.query(Member).filter(Member.member_id.in_(mids)).all()
-    balance_map = {m.member_id: f'¥{m.balance:.2f}' if m.balance else '¥0.00' for m in members}
-    return _build_table(rows, balance_map)
+    return _build_table(query.order_by(Recharge.recharge_date.desc()).limit(100).all())
 
 
 # ═══════════════════════════════════════════

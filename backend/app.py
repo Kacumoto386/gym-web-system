@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.8.1 — 会员充值模块增强（会员搜索/到期日期/经办员工选择/余额展示）
+V3.8.2 — 数据导入模块（模板下载 / Excel 上传 / 进度跟踪 / 历史记录）
 """
 import os
 import sys
@@ -29,8 +29,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.8.1 — 会员充值模块增强（会员搜索/到期日期/经办员工选择/余额展示）",
-    version="3.8.1",
+    description="Web 版健身管理系统 V3.8.2 — 数据导入模块（模板下载 / Excel 上传 / 进度跟踪 / 历史记录）",
+    version="3.8.2",
 )
 
 # 模板
@@ -454,6 +454,15 @@ def export_page(request: Request):
     )
 
 
+@app.get("/import")
+def import_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="import.html",
+        context={"title": "数据导入"},
+    )
+
+
 # ── 业绩统计页面路由 ──
 
 @app.get("/chat")
@@ -518,11 +527,11 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.8.1", "system_name": name}
+    return {"status": "ok", "version": "3.8.2", "system_name": name}
 
 
 # 路由注册
-from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value, dashboard
+from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value, dashboard, import_data
 app.include_router(member.router)
 app.include_router(staff.router)
 app.include_router(course.router)
@@ -548,3 +557,4 @@ app.include_router(asset_value.router)
 app.include_router(mcp_router)
 app.include_router(chat_router)
 app.include_router(dashboard.router)
+app.include_router(import_data.router)

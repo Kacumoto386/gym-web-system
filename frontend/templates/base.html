@@ -70,7 +70,7 @@
         <!-- Logo / 标题 -->
         <div class="px-4 py-4 border-b border-white/10">
             <h1 id="sidebarTitle" class="text-base font-bold tracking-wide">🏋️ {{ _get_system_name() }}</h1>
-            <span class="text-blue-300 text-xs">v3.8.1</span>
+            <span class="text-blue-300 text-xs">v3.8.2</span>
         </div>
 
         <!-- 导航菜单 -->
@@ -182,6 +182,7 @@
                     <a href="/alerts" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/alerts' in request.url.path %}bg-white/20 font-medium{% endif %}">到期提醒</a>
                     <a href="/logs" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/logs' in request.url.path %}bg-white/20 font-medium{% endif %}">操作日志</a>
                     <a href="/export" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/export' in request.url.path %}bg-white/20 font-medium{% endif %}">数据导出</a>
+                    <a href="/import" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/import' in request.url.path %}bg-white/20 font-medium{% endif %}">数据导入</a>
                     <a href="/chat" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/chat' in request.url.path %}bg-white/20 font-medium{% endif %}">AI 助手</a>
                     <a href="/mcp-tools" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/mcp-tools' in request.url.path %}bg-white/20 font-medium{% endif %}">MCP 工具</a>
                 </div>
@@ -190,7 +191,7 @@
 
         <!-- 底部版本信息 -->
         <div class="px-4 py-3 border-t border-white/10 text-blue-300 text-xs">
-            v3.8.1 © 健身管理系统
+            v3.8.2 © 健身管理系统
         </div>
     </aside>
 
