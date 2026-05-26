@@ -4,7 +4,7 @@ V3.5.3 — 增强：统计卡片、多维筛选、排序分页、详情页
 """
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile, File, Form
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, datetime, timedelta
@@ -252,9 +252,9 @@ class MemberCreate(BaseModel):
     gender: Optional[str] = ""
     phone: Optional[str] = ""
     birth_date: Optional[date] = None
-    height: Optional[float] = 0
-    weight: Optional[float] = 0
-    body_fat: Optional[float] = 0
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    body_fat: Optional[float] = None
     level: Optional[str] = "普通"
     source: Optional[str] = ""
     remark: Optional[str] = ""
@@ -275,9 +275,9 @@ class MemberOut(BaseModel):
     balance: float
     remaining_lessons: int
     total_checkin_days: int
-    height: Optional[float] = 0
-    weight: Optional[float] = 0
-    body_fat: Optional[float] = 0
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    body_fat: Optional[float] = None
     birth_date: Optional[date] = None
     source: Optional[str] = ""
     remark: Optional[str] = ""
@@ -494,7 +494,7 @@ def get_member(member_id: str, db: Session = Depends(get_db)):
     return member
 
 
-@router.post("", response_model=MemberOut)
+@router.post("")
 def create_member(
     request: Request,
     db: Session = Depends(get_db),
@@ -554,7 +554,7 @@ def create_member(
     db.add(member)
     db.commit()
     db.refresh(member)
-    return member
+    return Response(status_code=200, headers={"HX-Redirect": "/members"})
 
 
 @router.put("/{member_id}", response_model=MemberOut)

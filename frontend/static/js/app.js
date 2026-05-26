@@ -4,7 +4,7 @@
 
 // ── 侧边栏分组折叠 ──
 
-const GROUP_NAMES = ['members', 'courses', 'checkin', 'staff', 'finance', 'system'];
+const GROUP_NAMES = window._GROUP_NAMES || ['members', 'courses', 'checkin', 'staff', 'finance', 'system'];
 const STORAGE_PREFIX = 'sidebar_';
 
 function toggleGroup(name) {

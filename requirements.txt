@@ -11,3 +11,4 @@ python-jose[cryptography]>=3.3.0  # JWT 认证
 passlib[bcrypt]>=1.7.4  # 密码哈希
 bcrypt>=4.0.0  # bcrypt 哈希引擎
 alembic>=1.13.0
+PyYAML>=6.0  # 功能开关配置解析

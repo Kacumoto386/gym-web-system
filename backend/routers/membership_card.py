@@ -389,6 +389,14 @@ def sell_card(
         card_name=prod.card_name or prod.remark or "",
     )
     db.add(c)
+    # 更新会员剩余课时（次卡）
+    if prod.card_type == "次卡":
+        add_classes = (prod.total_classes or 0) + (prod.bonus_classes or 0)
+        if add_classes:
+            from backend.models.models import Member
+            member = db.query(Member).filter(Member.member_id == member_id).first()
+            if member:
+                member.remaining_lessons = (member.remaining_lessons or 0) + add_classes
     db.commit()
     db.refresh(c)
     return {"success": True, "card_id": card_id, "member_name": member_name}

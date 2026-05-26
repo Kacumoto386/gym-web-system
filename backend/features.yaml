@@ -1,0 +1,42 @@
+# features.yaml — 功能开关配置
+# 将值改为 false 即可隐藏对应功能模块（导航隐藏 + 页面不可访问）
+# 共 27 个功能模块，覆盖会员/课程/进场/员工/财务/系统六大分组
+
+# ── 会员 ──
+member: true            # 会员管理
+member_assets: true     # 资产残值
+recharge: true          # 会员充值
+body_measurement: true  # 体测记录
+membership_card: true   # 会籍卡
+
+# ── 课程 ──
+course: true            # 课程管理
+package: true           # 课程包管理
+sale: true              # 售课记录
+class_record: true      # 上课记录
+product: true           # 商品零售
+
+# ── 进场 ──
+checkin: true           # 进场核销
+booking: true           # 预约管理
+wristband: true         # 手环管理
+
+# ── 员工 ──
+staff: true             # 员工管理
+schedule: true          # 教练排班
+commission: true        # 梯度提成
+
+# ── 财务 ──
+finance: true           # 收入支出报表
+finance_review: true    # 支出审核
+finance_budget: true    # 预算管理
+finance_profit: true    # 利润表
+performance: true       # 业绩统计（含 5 个子页面）
+analytics: true         # 数据分析看板
+
+# ── 系统 ──
+alert: true             # 到期提醒
+log: true               # 操作日志
+export_data: true       # 数据导出
+import_data: true       # 数据导入
+chat: true              # AI 助手

@@ -45,7 +45,7 @@
         <!-- Logo / 标题 -->
         <div class="px-4 py-4 border-b border-white/10">
             <h1 id="sidebarTitle" class="text-base font-bold tracking-wide">🏋️ {{ _get_system_name() }}</h1>
-            <span class="text-blue-300 text-xs">v3.8.7</span>
+            <span class="text-blue-300 text-xs">v3.8.8</span>
         </div>
 
         <!-- 导航菜单 -->
@@ -56,121 +56,47 @@
                 <svg class="icon" aria-hidden="true"><use href="#icon-home"/></svg> 首页
             </a>
 
-            {# ── 会员 ── #}
+            {# ── 动态导航（由 feature_registry 根据 features.yaml 控制）── #}
+            {% for group in _nav_tree() %}
             <div class="space-y-0.5">
-                <button onclick="toggleGroup('members')"
+                <button onclick="toggleGroup('{{ group.group }}')"
                     class="group-header flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-blue-200 font-medium hover:bg-white/10 transition-colors duration-150">
-                    <svg class="icon" aria-hidden="true"><use href="#icon-users"/></svg>
-                    <span class="flex-1 text-left">会员</span>
-                    <span id="arrow-members" class="text-xs transition-transform duration-150">▼</span>
+                    <svg class="icon" aria-hidden="true"><use href="#icon-{{ group.icon }}"/></svg>
+                    <span class="flex-1 text-left">{{ group.group }}</span>
+                    <span id="arrow-{{ group.group }}" class="text-xs transition-transform duration-150">▼</span>
                 </button>
-                <div id="group-members" class="ml-3 space-y-0.5">
-                    <a href="/members" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if request.url.path == '/members' %}bg-white/20 font-medium{% endif %}">会员管理</a>
-                    <a href="/member-assets" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/member-assets' in request.url.path %}bg-white/20 font-medium{% endif %}">资产残值</a>
-                    <a href="/recharges" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/recharges' in request.url.path %}bg-white/20 font-medium{% endif %}">会员充值</a>
-                    <a href="/body-measurements" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/body-measurements' in request.url.path %}bg-white/20 font-medium{% endif %}">体测记录</a>
-                    <a href="/membership-cards" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/membership-cards' in request.url.path %}bg-white/20 font-medium{% endif %}">会籍卡</a>
-                </div>
-            </div>
-
-            {# ── 课程 ── #}
-            <div class="space-y-0.5">
-                <button onclick="toggleGroup('courses')"
-                    class="group-header flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-blue-200 font-medium hover:bg-white/10 transition-colors duration-150">
-                    <svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg>
-                    <span class="flex-1 text-left">课程</span>
-                    <span id="arrow-courses" class="text-xs transition-transform duration-150">▼</span>
-                </button>
-                <div id="group-courses" class="ml-3 space-y-0.5">
-                    <a href="/courses" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/courses' in request.url.path %}bg-white/20 font-medium{% endif %}">课程管理</a>
-                    <a href="/packages?v=4" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/packages' in request.url.path %}bg-white/20 font-medium{% endif %}">课程包管理</a>
-                    <a href="/sales" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/sales' in request.url.path %}bg-white/20 font-medium{% endif %}">售课记录</a>
-                    <a href="/class-records" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/class-records' in request.url.path %}bg-white/20 font-medium{% endif %}">上课记录</a>
-                    <a href="/products" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/products' in request.url.path %}bg-white/20 font-medium{% endif %}">商品零售</a>
-                </div>
-            </div>
-
-            {# ── 进场 ── #}
-            <div class="space-y-0.5">
-                <button onclick="toggleGroup('checkin')"
-                    class="group-header flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-blue-200 font-medium hover:bg-white/10 transition-colors duration-150">
-                    <svg class="icon" aria-hidden="true"><use href="#icon-check-circle"/></svg>
-                    <span class="flex-1 text-left">进场</span>
-                    <span id="arrow-checkin" class="text-xs transition-transform duration-150">▼</span>
-                </button>
-                <div id="group-checkin" class="ml-3 space-y-0.5">
-                    <a href="/checkin" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/checkin' in request.url.path %}bg-white/20 font-medium{% endif %}">进场核销</a>
-                    <a href="/booking" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/booking' in request.url.path %}bg-white/20 font-medium{% endif %}">预约管理</a>
-                    <a href="/wristband" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/wristband' in request.url.path %}bg-white/20 font-medium{% endif %}">手环管理</a>
-                </div>
-            </div>
-
-            {# ── 员工 ── #}
-            <div class="space-y-0.5">
-                <button onclick="toggleGroup('staff')"
-                    class="group-header flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-blue-200 font-medium hover:bg-white/10 transition-colors duration-150">
-                    <svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg>
-                    <span class="flex-1 text-left">员工</span>
-                    <span id="arrow-staff" class="text-xs transition-transform duration-150">▼</span>
-                </button>
-                <div id="group-staff" class="ml-3 space-y-0.5">
-                    <a href="/staff" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/staff' in request.url.path %}bg-white/20 font-medium{% endif %}">员工管理</a>
-                    <a href="/schedule" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/schedule' in request.url.path %}bg-white/20 font-medium{% endif %}">教练排班</a>
-                    <a href="/commission" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/commission' in request.url.path %}bg-white/20 font-medium{% endif %}">梯度提成</a>
-                </div>
-            </div>
-
-            {# ── 财务 ── #}
-            <div class="space-y-0.5">
-                <button onclick="toggleGroup('finance')"
-                    class="group-header flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-blue-200 font-medium hover:bg-white/10 transition-colors duration-150">
-                    <svg class="icon" aria-hidden="true"><use href="#icon-currency-dollar"/></svg>
-                    <span class="flex-1 text-left">财务</span>
-                    <span id="arrow-finance" class="text-xs transition-transform duration-150">▼</span>
-                </button>
-                <div id="group-finance" class="ml-3 space-y-0.5">
-                    <a href="/finance" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/finance' in request.url.path %}bg-white/20 font-medium{% endif %}">收支报表</a>
-                    <a href="/finance-review" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/finance-review' in request.url.path %}bg-white/20 font-medium{% endif %}">支出审核</a>
-                    <a href="/finance-budget" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/finance-budget' in request.url.path %}bg-white/20 font-medium{% endif %}">预算管理</a>
-                    <a href="/finance-profit" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/finance-profit' in request.url.path %}bg-white/20 font-medium{% endif %}">利润表</a>
+                <div id="group-{{ group.group }}" class="ml-3 space-y-0.5">
+                    {% for item in group["items"] %}
+                    {% if item.type == "section" %}
                     <div class="space-y-0.5">
                         <div class="flex items-center gap-1.5 pl-9 pr-2 py-1.5 text-xs text-blue-300 font-medium">
-                            <svg class="icon-sm" aria-hidden="true"><use href="#icon-chart-bar"/></svg> 业绩总览
+                            <svg class="icon-sm" aria-hidden="true"><use href="#icon-{{ item.icon }}"/></svg> {{ item.label }}
                         </div>
                         <div class="ml-2 space-y-0.5">
-                            <a href="/performance" class="block pl-9 pr-2 py-1 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if request.url.path == '/performance' %}bg-white/20 font-medium{% endif %}">业绩总览</a>
-                            <a href="/performance/sales" class="block pl-9 pr-2 py-1 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/performance/sales' in request.url.path %}bg-white/20 font-medium{% endif %}">售课业绩</a>
-                            <a href="/performance/packages" class="block pl-9 pr-2 py-1 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/performance/packages' in request.url.path %}bg-white/20 font-medium{% endif %}">课程包业绩</a>
-                            <a href="/performance/cards" class="block pl-9 pr-2 py-1 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/performance/cards' in request.url.path %}bg-white/20 font-medium{% endif %}">会籍卡业绩</a>
-                            <a href="/performance/checkins" class="block pl-9 pr-2 py-1 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/performance/checkins' in request.url.path %}bg-white/20 font-medium{% endif %}">进场统计</a>
+                            {% for child in item["children"] %}
+                            <a href="{{ child.path }}"
+                               class="block pl-9 pr-2 py-1 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if request.url.path == child.path %}bg-white/20 font-medium{% endif %}">{{ child.label }}</a>
+                            {% endfor %}
                         </div>
                     </div>
-                    <a href="/analytics" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/analytics' in request.url.path %}bg-white/20 font-medium{% endif %}">数据分析看板</a>
+                    {% else %}
+                    <a href="{{ item.path }}"
+                       class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if request.url.path == item.path %}bg-white/20 font-medium{% endif %}">{{ item.label }}</a>
+                    {% endif %}
+                    {% endfor %}
                 </div>
             </div>
-
-            {# ── 系统 ── #}
-            <div class="space-y-0.5">
-                <button onclick="toggleGroup('system')"
-                    class="group-header flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-blue-200 font-medium hover:bg-white/10 transition-colors duration-150">
-                    <svg class="icon" aria-hidden="true"><use href="#icon-cog"/></svg>
-                    <span class="flex-1 text-left">系统</span>
-                    <span id="arrow-system" class="text-xs transition-transform duration-150">▼</span>
-                </button>
-                <div id="group-system" class="ml-3 space-y-0.5">
-                    <a href="/alerts" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/alerts' in request.url.path %}bg-white/20 font-medium{% endif %}">到期提醒</a>
-                    <a href="/logs" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/logs' in request.url.path %}bg-white/20 font-medium{% endif %}">操作日志</a>
-                    <a href="/export" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/export' in request.url.path %}bg-white/20 font-medium{% endif %}">数据导出</a>
-                    <a href="/import" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/import' in request.url.path %}bg-white/20 font-medium{% endif %}">数据导入</a>
-                    <a href="/chat" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/chat' in request.url.path %}bg-white/20 font-medium{% endif %}">AI 助手</a>
-                    <a href="/mcp-tools" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/mcp-tools' in request.url.path %}bg-white/20 font-medium{% endif %}">MCP 工具</a>
-                </div>
-            </div>
+            {% endfor %}
         </nav>
+
+        {# ── GROUP_NAMES 注入（供 app.js 恢复侧边栏状态使用）── #}
+        <script>
+        window._GROUP_NAMES = [{% for g in _nav_tree() %}'{{ g.group }}'{% if not loop.last %},{% endif %}{% endfor %}];
+        </script>
 
         <!-- 底部版本信息 -->
         <div class="px-4 py-3 border-t border-white/10 text-blue-300 text-xs">
-            v3.8.7 © 健身管理系统
+            v3.8.8 © 健身管理系统
         </div>
     </aside>
 

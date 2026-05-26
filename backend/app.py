@@ -18,11 +18,12 @@ from backend.routers.auth import get_current_user, User
 from backend.routers.operation_log import record_log
 from backend.routers.mcp_router import router as mcp_router
 from backend.routers.chat_router import router as chat_router
+from backend.feature_registry import registry
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.8.7 — 财务报表 + 数据分析看板",
-    version="3.8.7",
+    description="Web 版健身管理系统 V3.8.8 — 功能配置清单 + Bug 修复",
+    version="3.8.8",
 )
 
 # 模板
@@ -44,6 +45,8 @@ def _get_system_name():
 
 
 templates.env.globals["_get_system_name"] = _get_system_name
+templates.env.globals["_nav_tree"] = registry.get_nav_tree
+templates.env.globals["_group_names"] = registry.get_group_names
 
 # 静态文件
 from fastapi.staticfiles import StaticFiles
@@ -142,20 +145,8 @@ _KNOWN_ACTION_SEGMENTS = frozenset({
     "settings", "assets", "summary",
 })
 
-# 资源名 → 中文名映射
-_RESOURCE_CN_MAP = {
-    "members": "会员", "staff": "员工", "courses": "课程",
-    "sales": "售课记录", "class-records": "上课记录", "checkins": "进场记录",
-    "wristbands": "手环", "body-measurements": "体测记录", "recharges": "充值记录",
-    "alerts": "到期提醒", "membership-cards": "会籍卡", "products": "商品",
-    "product-sales": "商品零售", "finance": "财务",
-    "commission": "提成管理", "booking": "预约管理",
-    "packages": "课程包", "export": "数据导出",
-    "mcp": "MCP 工具", "chat": "AI 对话",
-    "system": "系统设置",
-    "finance-review": "财务审核", "finance-budget": "预算管理",
-    "finance-profit": "利润表", "analytics": "数据分析",
-}
+# 资源名 → 中文名映射（由 feature_registry 根据配置过滤）
+_RESOURCE_CN_MAP = registry.get_active_resource_map()
 
 
 @app.middleware("http")
@@ -238,60 +229,64 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
-# ── 页面路由 ──
+# ── 页面路由（按功能开关条件注册）──
 
-@app.get("/schedule")
-def schedule_page(request: Request):
-    today = date.today()
-    return templates.TemplateResponse(
-        request=request,
-        name="schedule.html",
-        context={"title": "教练排班", "year": today.year, "month": today.month},
-    )
-
-
-@app.get("/booking")
-def booking_page(request: Request):
-    today = date.today()
-    return templates.TemplateResponse(
-        request=request,
-        name="booking.html",
-        context={"title": "预约管理", "today": today.isoformat()},
-    )
+if registry.is_enabled("schedule"):
+    @app.get("/schedule")
+    def schedule_page(request: Request):
+        today = date.today()
+        return templates.TemplateResponse(
+            request=request,
+            name="schedule.html",
+            context={"title": "教练排班", "year": today.year, "month": today.month},
+        )
 
 
-@app.get("/packages")
-def packages_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db), v: str = None):
-    from backend.routers.package import _build_product_table, _build_member_table
-    from backend.models.models import GroupPackage, LessonPackage, MonthlyPass
-
-    products_html = _build_product_table(
-        db.query(GroupPackage).order_by(GroupPackage.id.desc()).all()
-    )
-    lp_q = db.query(LessonPackage).order_by(LessonPackage.id.desc())
-    mp_q = db.query(MonthlyPass).order_by(MonthlyPass.id.desc())
-    member_html = _build_member_table(lp_q.all(), mp_q.all())
-
-    headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
-    return templates.TemplateResponse(
-        request=request,
-        name="packages.html",
-        context={
-            "request": request, "user": user, "current_page": "packages",
-            "products_html": products_html,
-            "member_html": member_html,
-        },
-        headers=headers,
-    )
+if registry.is_enabled("booking"):
+    @app.get("/booking")
+    def booking_page(request: Request):
+        today = date.today()
+        return templates.TemplateResponse(
+            request=request,
+            name="booking.html",
+            context={"title": "预约管理", "today": today.isoformat()},
+        )
 
 
-@app.get("/commission")
-def commission_page(request: Request, user: User = Depends(get_current_user)):
-    return templates.TemplateResponse(
-        request=request,
-        name="commission.html",
-        context={"request": request, "user": user, "current_page": "commission"},
-    )
+if registry.is_enabled("package"):
+    @app.get("/packages")
+    def packages_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db), v: str = None):
+        from backend.routers.package import _build_product_table, _build_member_table
+        from backend.models.models import GroupPackage, LessonPackage, MonthlyPass
+
+        products_html = _build_product_table(
+            db.query(GroupPackage).order_by(GroupPackage.id.desc()).all()
+        )
+        lp_q = db.query(LessonPackage).order_by(LessonPackage.id.desc())
+        mp_q = db.query(MonthlyPass).order_by(MonthlyPass.id.desc())
+        member_html = _build_member_table(lp_q.all(), mp_q.all())
+
+        headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+        return templates.TemplateResponse(
+            request=request,
+            name="packages.html",
+            context={
+                "request": request, "user": user, "current_page": "packages",
+                "products_html": products_html,
+                "member_html": member_html,
+            },
+            headers=headers,
+        )
+
+
+if registry.is_enabled("commission"):
+    @app.get("/commission")
+    def commission_page(request: Request, user: User = Depends(get_current_user)):
+        return templates.TemplateResponse(
+            request=request,
+            name="commission.html",
+            context={"request": request, "user": user, "current_page": "commission"},
+        )
 
 
 @app.get("/")
@@ -303,289 +298,307 @@ def root_page(request: Request):
     )
 
 
-@app.get("/members")
-def members_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="members.html",
-        context={"title": "会员管理"},
-    )
+if registry.is_enabled("member"):
+    @app.get("/members")
+    def members_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="members.html",
+            context={"title": "会员管理"},
+        )
 
 
-@app.get("/members/{member_id}")
-def member_detail_page(member_id: str, request: Request, db: Session = Depends(get_db)):
-    member = db.query(Member).filter(Member.member_id == member_id).first()
-    if not member:
-        raise HTTPException(status_code=404, detail="会员不存在")
+    @app.get("/members/{member_id}")
+    def member_detail_page(member_id: str, request: Request, db: Session = Depends(get_db)):
+        member = db.query(Member).filter(Member.member_id == member_id).first()
+        if not member:
+            raise HTTPException(status_code=404, detail="会员不存在")
 
-    # 画像统计
-    week_ago = date.today() - timedelta(days=7)
-    last_7d_checkins = db.query(Checkin).filter(
-        Checkin.member_id == member_id, Checkin.checkin_date >= week_ago
-    ).count()
-    total_class_count = db.query(ClassRecord).filter(
-        ClassRecord.member_id == member_id
-    ).count()
+        # 画像统计
+        week_ago = date.today() - timedelta(days=7)
+        last_7d_checkins = db.query(Checkin).filter(
+            Checkin.member_id == member_id, Checkin.checkin_date >= week_ago
+        ).count()
+        total_class_count = db.query(ClassRecord).filter(
+            ClassRecord.member_id == member_id
+        ).count()
 
-    return templates.TemplateResponse(
-        request=request,
-        name="member_detail.html",
-        context={
-            "title": f"会员详情 - {member.name}",
-            "member": member,
-            "member_id": member_id,
-            "today": date.today(),
-            "profile": {
-                "last_7d_checkins": last_7d_checkins,
-                "total_class_count": total_class_count,
+        return templates.TemplateResponse(
+            request=request,
+            name="member_detail.html",
+            context={
+                "title": f"会员详情 - {member.name}",
+                "member": member,
+                "member_id": member_id,
+                "today": date.today(),
+                "profile": {
+                    "last_7d_checkins": last_7d_checkins,
+                    "total_class_count": total_class_count,
+                },
             },
-        },
-    )
+        )
 
 
-@app.get("/member-assets")
-def member_assets_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="member_assets.html",
-        context={"title": "资产残值"},
-    )
+if registry.is_enabled("member_assets"):
+    @app.get("/member-assets")
+    def member_assets_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="member_assets.html",
+            context={"title": "资产残值"},
+        )
 
 
-@app.get("/staff")
-def staff_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="staff.html",
-        context={"title": "员工管理"},
-    )
+if registry.is_enabled("staff"):
+    @app.get("/staff")
+    def staff_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="staff.html",
+            context={"title": "员工管理"},
+        )
 
 
-@app.get("/courses")
-def courses_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="courses.html",
-        context={"title": "课程管理"},
-    )
+if registry.is_enabled("course"):
+    @app.get("/courses")
+    def courses_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="courses.html",
+            context={"title": "课程管理"},
+        )
 
 
-@app.get("/checkin")
-def checkin_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="checkin.html",
-        context={"title": "进场核销"},
-    )
+if registry.is_enabled("checkin"):
+    @app.get("/checkin")
+    def checkin_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="checkin.html",
+            context={"title": "进场核销"},
+        )
 
 
-@app.get("/sales")
-def sales_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="sales.html",
-        context={"title": "售课记录"},
-    )
+if registry.is_enabled("sale"):
+    @app.get("/sales")
+    def sales_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="sales.html",
+            context={"title": "售课记录"},
+        )
 
 
-@app.get("/class-records")
-def class_records_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="class_records.html",
-        context={"title": "上课记录"},
-    )
+if registry.is_enabled("class_record"):
+    @app.get("/class-records")
+    def class_records_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="class_records.html",
+            context={"title": "上课记录"},
+        )
 
 
-@app.get("/wristband")
-def wristband_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="wristband.html",
-        context={"title": "手环管理"},
-    )
+if registry.is_enabled("wristband"):
+    @app.get("/wristband")
+    def wristband_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="wristband.html",
+            context={"title": "手环管理"},
+        )
 
 
 # ── 仪表盘 API（已迁移至 backend/routers/dashboard.py）──
 
 
-@app.get("/recharges")
-def recharges_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="recharges.html",
-        context={"title": "会员充值"},
-    )
+if registry.is_enabled("recharge"):
+    @app.get("/recharges")
+    def recharges_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="recharges.html",
+            context={"title": "会员充值"},
+        )
 
 
+if registry.is_enabled("body_measurement"):
+    @app.get("/body-measurements")
+    def body_measurements_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="body_measurements.html",
+            context={"title": "体测记录"},
+        )
 
 
-
-@app.get("/body-measurements")
-def body_measurements_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="body_measurements.html",
-        context={"title": "体测记录"},
-    )
-
-
-@app.get("/alerts")
-def alerts_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="alerts.html",
-        context={"title": "到期提醒"},
-    )
+if registry.is_enabled("alert"):
+    @app.get("/alerts")
+    def alerts_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="alerts.html",
+            context={"title": "到期提醒"},
+        )
 
 
-@app.get("/membership-cards")
-def membership_cards_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="membership_cards.html",
-        context={"title": "会籍卡管理"},
-    )
+if registry.is_enabled("membership_card"):
+    @app.get("/membership-cards")
+    def membership_cards_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="membership_cards.html",
+            context={"title": "会籍卡管理"},
+        )
 
 
-@app.get("/products")
-def products_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="products.html",
-        context={"title": "商品零售"},
-    )
+if registry.is_enabled("product"):
+    @app.get("/products")
+    def products_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="products.html",
+            context={"title": "商品零售"},
+        )
 
 
-@app.get("/finance")
-def finance_page(request: Request):
-    from datetime import date
-    today = date.today()
-    return templates.TemplateResponse(
-        request=request,
-        name="finance.html",
-        context={"title": "收入支出报表", "today": today},
-    )
+if registry.is_enabled("finance"):
+    @app.get("/finance")
+    def finance_page(request: Request):
+        from datetime import date
+        today = date.today()
+        return templates.TemplateResponse(
+            request=request,
+            name="finance.html",
+            context={"title": "收入支出报表", "today": today},
+        )
 
 
-@app.get("/finance-review")
-def finance_review_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="finance_review.html",
-        context={"title": "支出审核"},
-    )
+if registry.is_enabled("finance_review"):
+    @app.get("/finance-review")
+    def finance_review_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="finance_review.html",
+            context={"title": "支出审核"},
+        )
 
 
-@app.get("/finance-budget")
-def finance_budget_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="finance_budget.html",
-        context={"title": "预算管理"},
-    )
+if registry.is_enabled("finance_budget"):
+    @app.get("/finance-budget")
+    def finance_budget_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="finance_budget.html",
+            context={"title": "预算管理"},
+        )
 
 
-@app.get("/finance-profit")
-def finance_profit_page(request: Request):
-    from datetime import date
-    today = date.today()
-    return templates.TemplateResponse(
-        request=request,
-        name="finance_profit.html",
-        context={"title": "利润表", "today": today},
-    )
+if registry.is_enabled("finance_profit"):
+    @app.get("/finance-profit")
+    def finance_profit_page(request: Request):
+        from datetime import date
+        today = date.today()
+        return templates.TemplateResponse(
+            request=request,
+            name="finance_profit.html",
+            context={"title": "利润表", "today": today},
+        )
 
 
-@app.get("/analytics")
-def analytics_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="analytics.html",
-        context={"title": "数据分析看板"},
-    )
+if registry.is_enabled("analytics"):
+    @app.get("/analytics")
+    def analytics_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="analytics.html",
+            context={"title": "数据分析看板"},
+        )
 
 
-@app.get("/logs")
-def logs_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="logs.html",
-        context={"title": "操作日志"},
-    )
+if registry.is_enabled("log"):
+    @app.get("/logs")
+    def logs_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="logs.html",
+            context={"title": "操作日志"},
+        )
 
 
-@app.get("/export")
-def export_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="export.html",
-        context={"title": "数据导出"},
-    )
+if registry.is_enabled("export_data"):
+    @app.get("/export")
+    def export_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="export.html",
+            context={"title": "数据导出"},
+        )
 
 
-@app.get("/import")
-def import_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="import.html",
-        context={"title": "数据导入"},
-    )
+if registry.is_enabled("import_data"):
+    @app.get("/import")
+    def import_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="import.html",
+            context={"title": "数据导入"},
+        )
 
 
-# ── 业绩统计页面路由 ──
-
-@app.get("/chat")
-def chat_page(request: Request):
-    """AI 对话页面"""
-    from backend.routers.chat_router import _CHAT_PAGE_HTML
-    from fastapi.responses import HTMLResponse
-    return HTMLResponse(_CHAT_PAGE_HTML)
-
-
-@app.get("/performance")
-def performance_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="performance.html",
-        context={"title": "业绩总览"},
-    )
+if registry.is_enabled("chat"):
+    @app.get("/chat")
+    def chat_page(request: Request):
+        """AI 对话页面"""
+        from backend.routers.chat_router import _CHAT_PAGE_HTML
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(_CHAT_PAGE_HTML)
 
 
-@app.get("/performance/sales")
-def performance_sales_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="performance_sales.html",
-        context={"title": "售课业绩"},
-    )
+if registry.is_enabled("performance"):
+    @app.get("/performance")
+    def performance_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="performance.html",
+            context={"title": "业绩总览"},
+        )
 
 
-@app.get("/performance/packages")
-def performance_packages_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="performance_packages.html",
-        context={"title": "课程包业绩"},
-    )
+    @app.get("/performance/sales")
+    def performance_sales_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="performance_sales.html",
+            context={"title": "售课业绩"},
+        )
 
 
-@app.get("/performance/cards")
-def performance_cards_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="performance_cards.html",
-        context={"title": "会籍卡业绩"},
-    )
+    @app.get("/performance/packages")
+    def performance_packages_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="performance_packages.html",
+            context={"title": "课程包业绩"},
+        )
 
 
-@app.get("/performance/checkins")
-def performance_checkins_page(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="performance_checkins.html",
-        context={"title": "会员进场统计"},
-    )
+    @app.get("/performance/cards")
+    def performance_cards_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="performance_cards.html",
+            context={"title": "会籍卡业绩"},
+        )
+
+
+    @app.get("/performance/checkins")
+    def performance_checkins_page(request: Request):
+        return templates.TemplateResponse(
+            request=request,
+            name="performance_checkins.html",
+            context={"title": "会员进场统计"},
+        )
 
 
 @app.get("/favicon.ico")
@@ -597,38 +610,39 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.8.7", "system_name": name}
+    return {"status": "ok", "version": "3.8.8", "system_name": name}
 
 
-# 路由注册
+# 路由注册（按功能开关条件注册）
 from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value, dashboard, import_data, finance_review, finance_budget, finance_profit, analytics
-app.include_router(member.router)
-app.include_router(staff.router)
-app.include_router(course.router)
-app.include_router(sale.router)
-app.include_router(class_record.router)
-app.include_router(checkin.router)
-app.include_router(body_measurement.router)
-app.include_router(recharge.router)
-app.include_router(alert.router)
-app.include_router(membership_card.router)
-app.include_router(product.router)
-app.include_router(finance.router)
-app.include_router(auth.router)
-app.include_router(operation_log.router)
-app.include_router(operation_log.system_router)  # 系统设置
-app.include_router(performance.router)
-app.include_router(export_data.router)
-app.include_router(commission.router)
-app.include_router(schedule.router)
-app.include_router(booking.router)
-app.include_router(package.router)
-app.include_router(asset_value.router)
-app.include_router(mcp_router)
-app.include_router(chat_router)
-app.include_router(dashboard.router)
-app.include_router(import_data.router)
-app.include_router(finance_review.router)
-app.include_router(finance_budget.router)
-app.include_router(finance_profit.router)
-app.include_router(analytics.router)
+
+if registry.is_enabled("member"):           app.include_router(member.router)
+if registry.is_enabled("staff"):            app.include_router(staff.router)
+if registry.is_enabled("course"):           app.include_router(course.router)
+if registry.is_enabled("sale"):             app.include_router(sale.router)
+if registry.is_enabled("class_record"):     app.include_router(class_record.router)
+if registry.is_enabled("checkin"):          app.include_router(checkin.router)
+if registry.is_enabled("body_measurement"): app.include_router(body_measurement.router)
+if registry.is_enabled("recharge"):         app.include_router(recharge.router)
+if registry.is_enabled("alert"):            app.include_router(alert.router)
+if registry.is_enabled("membership_card"):  app.include_router(membership_card.router)
+if registry.is_enabled("product"):          app.include_router(product.router)
+if registry.is_enabled("finance"):          app.include_router(finance.router)
+app.include_router(auth.router)                      # 认证 — 始终启用
+app.include_router(operation_log.router)              # 操作日志 — 始终启用
+app.include_router(operation_log.system_router)       # 系统设置 — 始终启用
+if registry.is_enabled("performance"):      app.include_router(performance.router)
+if registry.is_enabled("export_data"):      app.include_router(export_data.router)
+if registry.is_enabled("commission"):       app.include_router(commission.router)
+if registry.is_enabled("schedule"):         app.include_router(schedule.router)
+if registry.is_enabled("booking"):          app.include_router(booking.router)
+if registry.is_enabled("package"):          app.include_router(package.router)
+if registry.is_enabled("member_assets"):    app.include_router(asset_value.router)
+app.include_router(mcp_router)                         # MCP 工具 — 始终启用
+if registry.is_enabled("chat"):             app.include_router(chat_router)
+app.include_router(dashboard.router)                   # 仪表盘 API — 始终启用
+if registry.is_enabled("import_data"):      app.include_router(import_data.router)
+if registry.is_enabled("finance_review"):   app.include_router(finance_review.router)
+if registry.is_enabled("finance_budget"):   app.include_router(finance_budget.router)
+if registry.is_enabled("finance_profit"):   app.include_router(finance_profit.router)
+if registry.is_enabled("analytics"):        app.include_router(analytics.router)
