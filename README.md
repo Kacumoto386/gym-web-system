@@ -1,7 +1,8 @@
 # 🧀 鼠小弟健身管理系统 V3.8.x（网页版）
 
 从原有桌面版（v2.16.x）迁移而来的 Web 版本，持续迭代至 V3.8.x。
-![Uploading image.png…]()
+<img width="2552" height="1274" alt="screenshot-20260526-155652" src="https://github.com/user-attachments/assets/4afef2f4-8a04-4242-b61f-fd85d3869972" />
+
 
 ## 架构
 
