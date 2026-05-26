@@ -48,22 +48,12 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
-        """从环境变量读取配置（自动加载 .env 文件）"""
-        try:
-            env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
-            if os.path.exists(env_path):
-                with open(env_path, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith('#') and '=' in line:
-                            k, v = line.split('=', 1)
-                            os.environ[k.strip()] = v.strip()
-        except Exception:
-            pass
+        """从 settings 读取 LLM 配置"""
+        from backend.core.config import settings
         return cls(
-            api_base=os.getenv("OPENAI_API_BASE", "http://localhost:11434/v1"),
-            api_key=os.getenv("OPENAI_API_KEY", "sk-placeholder"),
-            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            api_base=settings.OPENAI_API_BASE,
+            api_key=settings.OPENAI_API_KEY,
+            model=settings.OPENAI_MODEL,
         )
 
 

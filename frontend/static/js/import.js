@@ -1,6 +1,7 @@
 // ── 数据导入工作流 ──
 var currentTaskId = null;
 var progressInterval = null;
+var eventSource = null;
 
 function switchType(type) {
     document.querySelectorAll('.import-tab').forEach(function(tab) {
@@ -84,7 +85,7 @@ function startImport(taskId) {
             if (data.success) {
                 document.getElementById('execSection').classList.add('hidden');
                 document.getElementById('progressSection').classList.remove('hidden');
-                pollProgress(taskId);
+                startProgressStream(taskId);
             } else {
                 alert('启动失败');
                 btn.disabled = false;
@@ -96,6 +97,52 @@ function startImport(taskId) {
             btn.disabled = false;
             btn.textContent = '开始导入';
         });
+}
+
+function startProgressStream(taskId) {
+    // 清理之前的轮询/SSE
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    if (eventSource) { eventSource.close(); eventSource = null; }
+
+    // 优先使用 EventSource (SSE)
+    if (typeof EventSource !== 'undefined') {
+        eventSource = new EventSource('/api/import/' + taskId + '/progress/stream');
+
+        eventSource.addEventListener('progress', function(e) {
+            try { updateProgress(JSON.parse(e.data)); } catch(ex) {}
+        });
+
+        eventSource.addEventListener('complete', function(e) {
+            try {
+                var data = JSON.parse(e.data);
+                updateProgress(data);
+                onImportComplete(data);
+            } catch(ex) {}
+            eventSource.close();
+            eventSource = null;
+        });
+
+        eventSource.addEventListener('error', function(e) {
+            // EventSource 自动重连，但如果是 complete/error 事件则关闭
+            if (e.eventPhase === EventSource.CLOSED) return;
+            // 回退到轮询
+            eventSource.close();
+            eventSource = null;
+            pollProgress(taskId);
+        });
+
+        // 超时保护：10 分钟后如果 SSE 仍活跃，回退到轮询
+        setTimeout(function() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                pollProgress(taskId);
+            }
+        }, 600000);
+    } else {
+        // 不支持 SSE 的浏览器，回退到轮询
+        pollProgress(taskId);
+    }
 }
 
 function pollProgress(taskId) {

@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, timedelta, datetime
 from backend.database import get_db
+from backend.routers.operation_log import record_log
 from backend.models.models import FinanceIncome, FinanceExpense
+from backend.utils.pagination import paginate_query, build_pagination_html
 from pydantic import BaseModel
 import io, csv
 
@@ -97,12 +99,12 @@ def _build_income_table(rows: list) -> str:
             <td class="px-4 py-3 text-sm">{r.remark or ''}</td>
             <td class="px-4 py-3 text-sm">{action_html}</td>
         </tr>"""
-    return f"""<table class="w-full bg-white rounded-lg shadow-sm">
+    return f"""<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">日期</th><th class="px-4 py-3">类别</th><th class="px-4 py-3">金额</th><th class="px-4 py-3">来源</th><th class="px-4 py-3">支付方式</th><th class="px-4 py-3">备注</th><th class="px-4 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
-    </table>"""
+    </table></div>"""
 
 
 def _build_expense_table(rows: list) -> str:
@@ -135,12 +137,12 @@ def _build_expense_table(rows: list) -> str:
             <td class="px-4 py-3 text-sm">{r.remark or ''}</td>
             <td class="px-4 py-3 text-sm">{action_html}</td>
         </tr>"""
-    return f"""<table class="w-full bg-white rounded-lg shadow-sm">
+    return f"""<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">日期</th><th class="px-4 py-3">类别</th><th class="px-4 py-3">金额</th><th class="px-4 py-3">收款方</th><th class="px-4 py-3">支付方式</th><th class="px-4 py-3">备注</th><th class="px-4 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
-    </table>"""
+    </table></div>"""
 
 
 def _build_summary(month_summary: tuple, income_count: int, expense_count: int) -> str:
@@ -170,44 +172,7 @@ def _build_summary(month_summary: tuple, income_count: int, expense_count: int) 
     </div>"""
 
 
-def _build_pagination(page: int, total: int, total_pages: int) -> str:
-    if total_pages <= 1:
-        return ""
-    pages_html = ""
-    if total_pages <= 10:
-        for p in range(1, total_pages + 1):
-            if p == page:
-                pages_html += f'<span class="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium">{p}</span>'
-            else:
-                pages_html += f'<button class="px-2 py-1 border rounded text-xs hover:bg-gray-100" onclick="goPage({p})">{p}</button>'
-    else:
-        items = [1]
-        if page > 4:
-            items.append("...")
-        for p in range(max(2, page - 2), min(total_pages - 1, page + 2) + 1):
-            items.append(p)
-        if page < total_pages - 3:
-            items.append("...")
-        items.append(total_pages)
-        for p in items:
-            if p == "...":
-                pages_html += '<span class="px-1 py-1 text-xs text-gray-400">…</span>'
-            elif p == page:
-                pages_html += f'<span class="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium">{p}</span>'
-            else:
-                pages_html += f'<button class="px-2 py-1 border rounded text-xs hover:bg-gray-100" onclick="goPage({p})">{p}</button>'
-    prev_disabled = "opacity-50 cursor-not-allowed" if page <= 1 else "hover:bg-gray-100"
-    next_disabled = "opacity-50 cursor-not-allowed" if page >= total_pages else "hover:bg-gray-100"
-    prev_onclick = "" if page <= 1 else f'onclick="goPage({page-1})"'
-    next_onclick = "" if page >= total_pages else f'onclick="goPage({page+1})"'
-    return f"""<div class="flex items-center justify-between mt-3 pt-2 border-t">
-        <span class="text-xs text-gray-500">共 {total} 条记录</span>
-        <div class="flex items-center gap-1">
-            <button class="px-2 py-1 border rounded text-xs {prev_disabled}" {prev_onclick}>上一页</button>
-            {pages_html}
-            <button class="px-2 py-1 border rounded text-xs {next_disabled}" {next_onclick}>下一页</button>
-        </div>
-    </div>"""
+# _build_pagination 已迁移至 backend.utils.pagination.build_pagination_html
 
 
 # ═══════════════════════════════════════════
@@ -238,11 +203,8 @@ def income_table(year: int = 0, month: int = 0, page: int = 1,
     if category:
         query = query.filter(FinanceIncome.category == category)
     query = query.filter(FinanceIncome.voided == 0)
-    total = query.count()
-    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
-    page = max(1, min(page, total_pages))
-    rows = query.order_by(FinanceIncome.income_date.desc()).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).all()
-    return _build_income_table(rows) + _build_pagination(page, total, total_pages)
+    rows, total, total_pages = paginate_query(query.order_by(FinanceIncome.income_date.desc()), page, PAGE_SIZE)
+    return _build_income_table(rows) + build_pagination_html(page, total, total_pages)
 
 
 @router.get("/expense/table", response_class=HTMLResponse)
@@ -269,11 +231,8 @@ def expense_table(year: int = 0, month: int = 0, page: int = 1,
     if category:
         query = query.filter(FinanceExpense.category == category)
     query = query.filter(FinanceExpense.voided == 0)
-    total = query.count()
-    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
-    page = max(1, min(page, total_pages))
-    rows = query.order_by(FinanceExpense.expense_date.desc()).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).all()
-    return _build_expense_table(rows) + _build_pagination(page, total, total_pages)
+    rows, total, total_pages = paginate_query(query.order_by(FinanceExpense.expense_date.desc()), page, PAGE_SIZE)
+    return _build_expense_table(rows) + build_pagination_html(page, total, total_pages)
 
 
 @router.get("/summary", response_class=HTMLResponse)
@@ -408,6 +367,17 @@ def delete_income(record_id: str, request: Request, db: Session = Depends(get_db
     r = db.query(FinanceIncome).filter(FinanceIncome.record_id == record_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="收入记录不存在")
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "收入记录", record_id, f"删除收入记录：{record_id}")
     db.delete(r)
     db.commit()
     return {"success": True}
@@ -418,6 +388,17 @@ def delete_expense(record_id: str, request: Request, db: Session = Depends(get_d
     r = db.query(FinanceExpense).filter(FinanceExpense.record_id == record_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="支出记录不存在")
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "支出记录", record_id, f"删除支出记录：{record_id}")
     db.delete(r)
     db.commit()
     return {"success": True}
@@ -445,6 +426,7 @@ def void_income(record_id: str, data: VoidRequest, request: Request, db: Session
     r.void_reason = data.reason
     r.void_time = datetime.now()
     r.void_operator = operator
+    record_log(db, operator, "void", "收入记录", record_id, f"作废收入记录：{record_id}")
     db.commit()
     return {"success": True, "message": "收入记录已作废"}
 
@@ -471,6 +453,7 @@ def void_expense(record_id: str, data: VoidRequest, request: Request, db: Sessio
     r.void_reason = data.reason
     r.void_time = datetime.now()
     r.void_operator = operator
+    record_log(db, operator, "void", "支出记录", record_id, f"作废支出记录：{record_id}")
     db.commit()
     return {"success": True, "message": "支出记录已作废"}
 

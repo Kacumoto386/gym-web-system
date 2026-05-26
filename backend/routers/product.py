@@ -11,6 +11,8 @@ from sqlalchemy import func
 from datetime import date, datetime
 from decimal import Decimal
 from backend.database import get_db
+from backend.routers.operation_log import record_log
+from backend.utils.response import success
 from backend.models.models import Product, ProductSale, StockInbound, Member
 from backend.services.id_gen import generate_id
 from pydantic import BaseModel
@@ -136,7 +138,7 @@ def adjust_stock(product_id: str, new_stock: int = Query(..., ge=0), reason: str
     old_stock = p.stock or 0
     p.stock = new_stock
     db.commit()
-    return {"success": True, "product_id": product_id, "old_stock": old_stock, "new_stock": new_stock, "reason": reason}
+    return success(data={"product_id": product_id, "old_stock": old_stock, "new_stock": new_stock, "reason": reason})
 
 
 @router.delete("/products/{product_id}")
@@ -144,9 +146,20 @@ def delete_product(product_id: str, request: Request, db: Session = Depends(get_
     p = db.query(Product).filter(Product.product_id == product_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="商品不存在")
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "商品", product_id, f"删除商品：{p.name}({product_id})")
     db.delete(p)
     db.commit()
-    return {"success": True, "message": "商品已删除"}
+    return success(message="商品已删除")
 
 
 # ═══════════════════════════════════════════
@@ -261,9 +274,20 @@ def delete_product_sale(sale_id: str, request: Request, db: Session = Depends(ge
     if product:
         product.stock = (product.stock or 0) + (s.quantity or 0)
 
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "商品零售", sale_id, f"删除零售记录：{sale_id}")
     db.delete(s)
     db.commit()
-    return {"success": True, "message": "零售记录已删除"}
+    return success(message="零售记录已删除")
 
 
 class VoidRequest(BaseModel):
@@ -297,8 +321,9 @@ def void_product_sale(sale_id: str, data: VoidRequest, request: Request, db: Ses
     s.void_reason = data.reason
     s.void_time = datetime.now()
     s.void_operator = operator
+    record_log(db, operator, "void", "商品零售", sale_id, f"作废零售记录：{sale_id}")
     db.commit()
-    return {"success": True, "message": "零售记录已作废"}
+    return success(message="零售记录已作废")
 
 
 # ═══════════════════════════════════════════
@@ -396,13 +421,10 @@ def batch_create_sales(data: BatchSaleCreate, db: Session = Depends(get_db)):
     for s in created:
         db.refresh(s)
 
-    return {
-        "success": True,
-        "count": len(created),
-        "total": grand_total,
-        "use_balance": data.use_balance,
-        "message": f"成功创建 {len(created)} 条零售记录，合计 ¥{grand_total:.2f}"
-    }
+    return success(
+        data={"count": len(created), "total": grand_total, "use_balance": data.use_balance},
+        message=f"成功创建 {len(created)} 条零售记录，合计 ¥{grand_total:.2f}",
+    )
 
 
 # ═══════════════════════════════════════════
@@ -493,11 +515,11 @@ def create_inbound(data: InboundCreate, db: Session = Depends(get_db)):
     product.stock = (product.stock or 0) + qty
 
     db.commit()
-    return {"success": True, "inbound_id": iid, "message": f"入库成功，{product.name} +{qty}"}
+    return success(data={"inbound_id": iid}, message=f"入库成功，{product.name} +{qty}")
 
 
 @router.delete("/products/inbounds/{inbound_id}")
-def delete_inbound(inbound_id: str, db: Session = Depends(get_db)):
+def delete_inbound(inbound_id: str, request: Request, db: Session = Depends(get_db)):
     rec = db.query(StockInbound).filter(StockInbound.inbound_id == inbound_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail="进货记录不存在")
@@ -507,9 +529,20 @@ def delete_inbound(inbound_id: str, db: Session = Depends(get_db)):
     if product:
         product.stock = max(0, (product.stock or 0) - (rec.quantity or 0))
 
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "进货记录", inbound_id, f"删除进货记录：{inbound_id}")
     db.delete(rec)
     db.commit()
-    return {"success": True, "message": "进货记录已删除，库存已回滚"}
+    return success(message="进货记录已删除，库存已回滚")
 
 
 # ═══════════════════════════════════════════

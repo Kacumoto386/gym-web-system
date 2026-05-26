@@ -136,7 +136,7 @@
             <button onclick="closeAddProduct()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <form id="addProductForm" onsubmit="return saveNewProduct(event)">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div><label class="block text-sm text-gray-600 mb-1">商品名 *</label><input name="name" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label><input name="category" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">进价</label><input name="cost_price" type="number" step="0.01" value="0" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
@@ -162,7 +162,7 @@
             <button onclick="closeEditProduct()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <input type="hidden" id="editProductId">
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><label class="block text-sm text-gray-600 mb-1">商品名 *</label><input id="editName" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
             <div><label class="block text-sm text-gray-600 mb-1">类别</label><input id="editCategory" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
             <div><label class="block text-sm text-gray-600 mb-1">进价</label><input id="editCostPrice" type="number" step="0.01" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
@@ -226,7 +226,7 @@
                 <label class="block text-sm text-gray-600 mb-1">入库日期</label>
                 <input id="inboundDate" type="date" class="w-full px-3 py-2 border rounded-lg text-sm">
             </div>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-sm text-gray-600 mb-1">数量 *</label>
                     <input id="inboundQty" type="number" min="1" value="1" class="w-full px-3 py-2 border rounded-lg text-sm">

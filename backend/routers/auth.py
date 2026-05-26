@@ -15,12 +15,14 @@ from sqlalchemy.sql import func as sql_func
 from jose import JWTError, jwt
 import bcrypt
 from backend.database import Base, engine, get_db
+from backend.core.config import settings
 from backend.routers.operation_log import record_log
+from backend.utils.response import success
 
-# ── 配置 ──
-SECRET_KEY = "gym-web-system-secret-key-change-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24
+# ── 配置（来自 settings） ──
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_HOURS = settings.ACCESS_TOKEN_EXPIRE_HOURS
 
 
 # ── 密码工具（不用 passlib，避免 bcrypt 5.x 兼容性问题）──
@@ -176,7 +178,9 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     token = create_access_token({"sub": user.username})
-    response = JSONResponse({"access_token": token, "token_type": "bearer", "username": user.username})
+    record_log(db, user.username, "login", "认证", "", f"用户登录：{user.username}")
+    payload = success(data={"access_token": token, "token_type": "bearer", "username": user.username}).model_dump()
+    response = JSONResponse(payload)
     response.set_cookie(
         key="access_token",
         value=token,
@@ -201,9 +205,10 @@ def setup_admin(data: UserCreate, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.commit()
-    return {"success": True, "message": f"管理员 {data.username} 创建成功"}
+    record_log(db, "系统", "create", "认证", "", f"初始化管理员账号：{data.username}")
+    return success(message=f"管理员 {data.username} 创建成功")
 
 
 @router.get("/me")
 def get_me(user: User = Depends(require_user)):
-    return {"username": user.username, "display_name": user.display_name, "role": user.role}
+    return success(data={"username": user.username, "display_name": user.display_name, "role": user.role})

@@ -7,6 +7,7 @@ var tabEndpoints = {
     Body: '/api/members/' + window._pageData.memberId + '/body-measurements-html',
     Purchases: '/api/members/' + window._pageData.memberId + '/purchases-html',
 };
+var bodyChartInstance = null;
 
 function switchTab(tab) {
     tabIds.forEach(function(t) {
@@ -24,10 +25,50 @@ function switchTab(tab) {
         // 懒加载
         if (isActive && !tabLoaded[tab]) {
             var url = tabEndpoints[t];
-            htmx.ajax('GET', url, {target: '#tab' + t + 'Content', swap: 'innerHTML'});
+            if (t === 'Body') {
+                // Body tab 使用自定义加载（含图表）
+                loadBodyTab();
+            } else {
+                htmx.ajax('GET', url, {target: '#tab' + t + 'Content', swap: 'innerHTML'});
+            }
             tabLoaded[tab] = true;
         }
     });
+}
+
+function loadBodyTab() {
+    var contentEl = document.getElementById('tabBodyContent');
+
+    // 加载体测趋势图
+    var canvas = document.getElementById('bodyTrendChart');
+    if (canvas && typeof Chart !== 'undefined') {
+        fetch('/api/members/' + window._pageData.memberId + '/body-trend')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.labels && data.labels.length > 0) {
+                    if (bodyChartInstance) bodyChartInstance.destroy();
+                    bodyChartInstance = new Chart(canvas, {
+                        type: 'line',
+                        data: data,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 8, font: { size: 10 } } } },
+                            scales: {
+                                x: { ticks: { font: { size: 10 } } },
+                                y: { beginAtZero: false, ticks: { font: { size: 10 } } }
+                            }
+                        }
+                    });
+                } else {
+                    canvas.style.display = 'none';
+                }
+            })
+            .catch(function() { canvas.style.display = 'none'; });
+    }
+
+    // 加载体测记录表格
+    htmx.ajax('GET', tabEndpoints.Body, {target: '#tabBodyInner', swap: 'outerHTML'});
 }
 
 // 从列表页跳转过来时自动打开编辑弹窗

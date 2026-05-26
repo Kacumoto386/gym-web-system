@@ -11,7 +11,9 @@ from sqlalchemy import func
 from datetime import date, datetime
 from backend.database import get_db
 from backend.models.models import Sale, LessonPackage
+from backend.routers.operation_log import record_log
 from backend.services.id_gen import generate_id
+from backend.utils.response import success
 from pydantic import BaseModel
 
 TODAY = date.today()
@@ -153,7 +155,7 @@ def _build_table(rows: list, db: Session = None) -> str:
             action_col,
         )
     return (
-        '<table class="w-full bg-white rounded-lg shadow-sm">'
+        '<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">'
         '<thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">'
         '<tr>'
         '<th class="px-4 py-3">编号</th><th class="px-4 py-3">会员</th>'
@@ -165,7 +167,7 @@ def _build_table(rows: list, db: Session = None) -> str:
         '</tr>'
         '</thead>'
         '<tbody>{}</tbody>'
-        '</table>'
+        '</table></div>'
     ).format(trs)
 
 
@@ -359,8 +361,9 @@ def void_sale(sale_id: str, data: VoidRequest, request: Request, db: Session = D
     sale.void_reason = data.reason
     sale.void_time = datetime.now()
     sale.void_operator = operator
+    record_log(db, operator, "void", "售课记录", sale_id, f"作废售课：{sale.course_name}({sale.member_name})")
     db.commit()
-    return {"success": True, "message": f"售课记录 {sale_id} 已作废"}
+    return success(message=f"售课记录 {sale_id} 已作废")
 
 
 @router.delete("/{sale_id}")
@@ -368,7 +371,17 @@ def delete_sale(sale_id: str, request: Request, db: Session = Depends(get_db)):
     sale = db.query(Sale).filter(Sale.sale_id == sale_id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="售课记录不存在")
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "售课记录", sale_id, f"删除售课：{sale.course_name}({sale.member_name})")
     db.delete(sale)
     db.commit()
 
-    return {"success": True, "message": "售课记录 {} 已删除".format(sale_id)}
+    return success(message="售课记录 {} 已删除".format(sale_id))

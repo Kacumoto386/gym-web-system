@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="px-6 py-5">
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-lg font-bold text-gray-800">支出审核</h1>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div id="reviewStats" hx-get="/api/finance-review/stats" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center py-4 text-gray-400 text-sm">加载统计...</div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="flex flex-wrap items-center gap-2 mb-3">
+        <button class="px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white" id="filterAll" onclick="switchFilter('')">全部</button>
+        <button class="px-3 py-1.5 rounded text-sm bg-yellow-100 text-yellow-700 hover:bg-yellow-200" id="filterPending" onclick="switchFilter('待审核')">待审核</button>
+        <button class="px-3 py-1.5 rounded text-sm bg-green-100 text-green-700 hover:bg-green-200" id="filterApproved" onclick="switchFilter('已通过')">已通过</button>
+        <button class="px-3 py-1.5 rounded text-sm bg-red-100 text-red-700 hover:bg-red-200" id="filterRejected" onclick="switchFilter('已驳回')">已驳回</button>
+        <input type="text" id="searchInput" placeholder="搜索收款方/备注/类别" class="ml-2 px-3 py-1.5 border rounded text-sm w-48" onkeydown="if(event.key==='Enter')doSearch()">
+        <button class="px-3 py-1.5 bg-gray-100 rounded text-sm hover:bg-gray-200" onclick="doSearch()">搜索</button>
+    </div>
+
+    <!-- 表格 -->
+    <div id="reviewTable" hx-get="/api/finance-review/table?status=待审核" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center py-8 text-gray-400">加载中...</div>
+    </div>
+</div>
+
+<!-- 驳回原因弹窗 -->
+<div id="rejectModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/30" onclick="if(event.target===this)closeRejectModal()">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4" onclick="event.stopPropagation()">
+        <h3 class="text-base font-bold mb-3">驳回原因</h3>
+        <textarea id="rejectReason" class="w-full border rounded-lg p-2 text-sm h-24" placeholder="请输入驳回原因..."></textarea>
+        <div class="flex justify-end gap-2 mt-4">
+            <button class="px-4 py-2 text-sm rounded-lg border hover:bg-gray-50" onclick="closeRejectModal()">取消</button>
+            <button class="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700" onclick="confirmReject()">确认驳回</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script src="/static/js/finance_review.js"></script>
+{% endblock %}

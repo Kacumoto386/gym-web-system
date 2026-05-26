@@ -73,6 +73,18 @@ document.body.addEventListener('htmx:beforeSwap', function(evt) {
     }
 });
 
+// ── 移动端侧边栏切换 ──
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
 // ── DOM 就绪 ──
 
 document.addEventListener('DOMContentLoaded', function() {

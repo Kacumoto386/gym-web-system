@@ -1,0 +1,32 @@
+{% macro pagination_bar(page, total, total_pages) %}
+{% if total_pages > 1 %}
+<div class="flex items-center justify-between mt-4">
+    <span class="text-sm text-gray-500">共 {{ total }} 条，第 {{ page }}/{{ total_pages }} 页</span>
+    <div class="flex gap-1">
+        <button class="px-3 py-1 rounded text-sm border hover:bg-gray-50{% if page <= 1 %} opacity-50 pointer-events-none{% endif %}"
+                onclick="goPage({{ page - 1 }})"{% if page <= 1 %} disabled{% endif %}>上一页</button>
+        {% set max_visible = 9 %}
+        {% if total_pages <= max_visible %}
+            {% set pages = range(1, total_pages + 1) %}
+        {% else %}
+            {% set half = max_visible // 2 %}
+            {% set start = [2, page - half] | max %}
+            {% set end = [total_pages - 1, page + half] | min %}
+            {# 直接渲染：1 ... start..end ... total_pages #}
+            <button class="px-3 py-1 rounded text-sm border hover:bg-gray-50{% if 1 == page %} bg-blue-600 text-white font-medium{% endif %}"
+                    onclick="goPage(1)">1</button>
+            {% if start > 2 %}<span class="px-2 py-1 text-gray-400 text-sm">...</span>{% endif %}
+            {% for p in range(start, end + 1) %}
+                <button class="px-3 py-1 rounded text-sm border hover:bg-gray-50{% if p == page %} bg-blue-600 text-white font-medium{% endif %}"
+                        onclick="goPage({{ p }})">{{ p }}</button>
+            {% endfor %}
+            {% if end < total_pages - 1 %}<span class="px-2 py-1 text-gray-400 text-sm">...</span>{% endif %}
+            <button class="px-3 py-1 rounded text-sm border hover:bg-gray-50{% if total_pages == page %} bg-blue-600 text-white font-medium{% endif %}"
+                    onclick="goPage({{ total_pages }})">{{ total_pages }}</button>
+        {% endif %}
+        <button class="px-3 py-1 rounded text-sm border hover:bg-gray-50{% if page >= total_pages %} opacity-50 pointer-events-none{% endif %}"
+                onclick="goPage({{ page + 1 }})"{% if page >= total_pages %} disabled{% endif %}>下一页</button>
+    </div>
+</div>
+{% endif %}
+{% endmacro %}

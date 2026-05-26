@@ -5,7 +5,7 @@ V3.7.1
 """
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.database import get_db
@@ -343,3 +343,209 @@ def dashboard_trends(db: Session = Depends(get_db)):
         </div>
     </div>
     """
+
+
+# ══════════════════════════════════════════
+# 会员注册趋势（Chart.js JSON）
+# ══════════════════════════════════════════
+
+@router.get("/registration-trend")
+def registration_trend(db: Session = Depends(get_db)):
+    """近30日会员注册趋势"""
+    today = date.today()
+    start = today - timedelta(days=29)
+    rows = db.query(
+        func.date(Member.created_at).label("reg_date"),
+        func.count(Member.id).label("cnt"),
+    ).filter(
+        Member.created_at >= start,
+    ).group_by(func.date(Member.created_at)).all()
+    reg_map = {r.reg_date: r.cnt for r in rows}
+
+    labels = []
+    data = []
+    for i in range(30):
+        d = start + timedelta(days=i)
+        labels.append(d.strftime("%m/%d"))
+        data.append(reg_map.get(d, 0))
+
+    return {"labels": labels, "datasets": [{"label": "新增注册", "data": data, "borderColor": "#8B5CF6", "fill": True, "backgroundColor": "rgba(139,92,246,0.1)"}]}
+
+
+# ══════════════════════════════════════════
+# 月度营收对比（Chart.js JSON）
+# ══════════════════════════════════════════
+
+@router.get("/monthly-revenue")
+def monthly_revenue(db: Session = Depends(get_db)):
+    """近12月营收对比"""
+    today = date.today()
+    labels = []
+    revenue_data = []
+    for i in range(11, -1, -1):
+        m = today.month - i
+        y = today.year
+        while m < 1:
+            m += 12
+            y -= 1
+        month_start = date(y, m, 1)
+        if m == 12:
+            month_end = date(y, 12, 31)
+        else:
+            month_end = date(y, m + 1, 1) - timedelta(days=1)
+
+        total = db.query(func.sum(Sale.actual_amount)).filter(
+            Sale.sale_date >= month_start,
+            Sale.sale_date <= month_end,
+        ).scalar() or 0
+
+        labels.append(f"{y}-{m:02d}")
+        revenue_data.append(float(total))
+
+    return {"labels": labels, "datasets": [{"label": "月营收(元)", "data": revenue_data, "borderColor": "#10B981", "backgroundColor": "rgba(16,185,129,0.2)", "fill": True}]}
+
+
+# ══════════════════════════════════════════
+# Top 10 榜单
+# ══════════════════════════════════════════
+
+@router.get("/top10", response_class=HTMLResponse)
+def dashboard_top10(db: Session = Depends(get_db)):
+    today = date.today()
+    month_start = today.replace(day=1)
+
+    # 本月签到王
+    checkin_top = db.query(
+        Checkin.member_name, Checkin.member_id,
+        func.count(Checkin.id).label("cnt"),
+    ).filter(
+        Checkin.checkin_date >= month_start,
+        Checkin.checkin_date <= today,
+    ).group_by(Checkin.member_id, Checkin.member_name).order_by(func.count(Checkin.id).desc()).limit(10).all()
+
+    # 本月消费王
+    sale_top = db.query(
+        Sale.member_name, Sale.member_id,
+        func.sum(Sale.actual_amount).label("total"),
+    ).filter(
+        Sale.sale_date >= month_start,
+        Sale.sale_date <= today,
+    ).group_by(Sale.member_id, Sale.member_name).order_by(func.sum(Sale.actual_amount).desc()).limit(10).all()
+
+    # 课时消耗王
+    class_top = db.query(
+        ClassRecord.member_name, ClassRecord.member_id,
+        func.sum(ClassRecord.consumed_hours).label("total_hours"),
+    ).filter(
+        ClassRecord.class_date >= month_start,
+        ClassRecord.class_date <= today,
+    ).group_by(ClassRecord.member_id, ClassRecord.member_name).order_by(func.sum(ClassRecord.consumed_hours).desc()).limit(10).all()
+
+    def _rank_section(title, icon, items, fmt="{name}", suffix=""):
+        if not items:
+            return ""
+        rows = "".join(
+            f"""<div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                <div class="flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-bold">{i+1}</span>
+                    <a href="/members/{item[1]}" class="text-sm text-gray-800 hover:text-blue-600">{fmt.format(name=item[0])}</a>
+                </div>
+                <span class="text-xs font-mono text-gray-500">{item[2]}{suffix}</span>
+            </div>"""
+            for i, item in enumerate(items)
+        )
+        return f"""<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-3">
+            <div class="flex items-center gap-1.5 mb-2 text-xs font-medium text-gray-500">{icon} {title}</div>
+            {rows}
+        </div>"""
+
+    checkin_html = _rank_section("本月签到王", "📋", checkin_top, suffix=" 次")
+    sale_html = _rank_section("本月消费王", "💰", sale_top, fmt="¥{name}", suffix=" 元")
+    class_html = _rank_section("课时消耗王", "📝", class_top, suffix=" 课时")
+
+    return f"""<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {checkin_html}
+        {sale_html}
+        {class_html}
+    </div>"""
+
+
+# ══════════════════════════════════════════
+# 今日任务清单
+# ══════════════════════════════════════════
+
+@router.get("/today-tasks", response_class=HTMLResponse)
+def dashboard_today_tasks(db: Session = Depends(get_db)):
+    today = date.today()
+
+    # 今日待办预约
+    pending_bookings = db.query(ClassRecord).filter(
+        ClassRecord.class_date == today,
+        ClassRecord.status == "已预约",
+    ).count()
+
+    # 今日生日
+    birthday_count = db.query(Member).filter(
+        func.extract("month", Member.birth_date) == today.month,
+        func.extract("day", Member.birth_date) == today.day,
+        Member.birth_date.isnot(None),
+    ).count()
+
+    # 7天内即将到期
+    expiring_cards = db.query(MembershipCard).filter(
+        MembershipCard.status == "正常",
+        MembershipCard.end_date != None,
+        MembershipCard.end_date >= today,
+        MembershipCard.end_date <= today + timedelta(days=7),
+        MembershipCard.is_product != 1,
+    ).count()
+
+    expiring_lessons = db.query(LessonPackage).filter(
+        LessonPackage.status == "正常",
+        LessonPackage.valid_until != None,
+        LessonPackage.valid_until >= today,
+        LessonPackage.valid_until <= today + timedelta(days=7),
+    ).count()
+
+    # 30天未签到
+    thirty_days_ago = today - timedelta(days=30)
+    inactive_members = db.query(Member).filter(
+        Member.status.in_(["正常", "有效"]),
+        Member.last_checkin_date != None,
+        Member.last_checkin_date < thirty_days_ago,
+    ).count()
+
+    items = []
+    if pending_bookings > 0:
+        items.append(("📅", f"{pending_bookings} 节私教课待签到", "bg-blue-50 text-blue-700"))
+    if birthday_count > 0:
+        items.append(("🎂", f"{birthday_count} 位会员今日生日", "bg-pink-50 text-pink-700"))
+    if expiring_cards > 0:
+        items.append(("🎫", f"{expiring_cards} 个会籍即将到期", "bg-orange-50 text-orange-700"))
+    if expiring_lessons > 0:
+        items.append(("📚", f"{expiring_lessons} 个课程包即将到期", "bg-yellow-50 text-yellow-700"))
+    if inactive_members > 0:
+        items.append(("⚠️", f"{inactive_members} 位会员超过30天未到场", "bg-red-50 text-red-700"))
+
+    if not items:
+        return """
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div class="text-xs font-medium text-gray-500 mb-2">📋 今日待办</div>
+            <div class="text-center py-4 text-gray-400 text-xs">暂无待办事项</div>
+        </div>"""
+
+    rows = "".join(
+        f"""<div class="flex items-center gap-2 px-3 py-2 rounded-lg {cls}">
+            <span>{icon}</span>
+            <span class="text-xs font-medium">{text}</span>
+        </div>"""
+        for icon, text, cls in items
+    )
+
+    return f"""
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="text-xs font-medium text-gray-500 mb-2">📋 今日待办</div>
+        <div class="space-y-1.5">
+            {rows}
+        </div>
+    </div>"""

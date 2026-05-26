@@ -6,39 +6,8 @@
     <title>{{ title }} - 健身房管理系统</title>
     <script src="/static/tailwind.min.js"></script>
     <script src="/static/htmx.min.js"></script>
-    <style>
-        /* ── Brand Design System ── */
-        :root {
-            --brand-primary: #1d4ed8;
-            --brand-primary-hover: #1e40af;
-            --brand-primary-light: #dbeafe;
-            --brand-accent: #f59e0b;
-            --brand-success: #10b981;
-            --brand-danger: #ef4444;
-            --brand-bg: #f8fafc;
-            --brand-surface: #ffffff;
-            --brand-text: #1e293b;
-            --brand-text-muted: #64748b;
-            --brand-border: #e2e8f0;
-            --brand-sidebar-bg: #1e3a5f;
-            --brand-sidebar-hover: rgba(255,255,255,0.1);
-            --brand-sidebar-active: rgba(255,255,255,0.15);
-            --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-            --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-        }
-
-        /* 侧边栏滚动条 */
-        .sidebar::-webkit-scrollbar { width: 4px; }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
-        .sidebar::-webkit-scrollbar-track { background: transparent; }
-
-        /* SVG 图标基础样式 */
-        .icon { width: 1.25em; height: 1.25em; flex-shrink: 0; }
-        .icon-sm { width: 1em; height: 1em; flex-shrink: 0; }
-
-        /* text-wrap: pretty 改善排版 */
-        h1, h2, h3, p { text-wrap: pretty; }
-    </style>
+    <link rel="stylesheet" href="/static/css/base.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-[var(--brand-bg)] min-h-screen flex font-[var(--font-sans)]">
     <!-- SVG Icons Sprite -->
@@ -65,12 +34,18 @@
         <symbol id="icon-identification" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0a2 2 0 114 0 2 2 0 01-4 0zm-3 9v1m10-1v1m-4-4h.01"/></symbol>
     </svg>
 
+    <!-- 移动端遮罩 -->
+    <div id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <!-- 移动端汉堡按钮 -->
+    <button id="hamburgerBtn" onclick="toggleSidebar()" aria-label="切换菜单">☰</button>
+
     <!-- 左侧边栏 -->
-    <aside class="sidebar fixed top-0 left-0 w-56 h-screen bg-[var(--brand-sidebar-bg)] text-white flex flex-col overflow-y-auto z-50 shadow-xl">
+    <aside id="sidebar" class="sidebar fixed top-0 left-0 w-56 h-screen bg-[var(--brand-sidebar-bg)] text-white flex flex-col overflow-y-auto z-50 shadow-xl">
         <!-- Logo / 标题 -->
         <div class="px-4 py-4 border-b border-white/10">
             <h1 id="sidebarTitle" class="text-base font-bold tracking-wide">🏋️ {{ _get_system_name() }}</h1>
-            <span class="text-blue-300 text-xs">v3.8.6</span>
+            <span class="text-blue-300 text-xs">v3.8.7</span>
         </div>
 
         <!-- 导航菜单 -->
@@ -155,6 +130,9 @@
                 </button>
                 <div id="group-finance" class="ml-3 space-y-0.5">
                     <a href="/finance" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/finance' in request.url.path %}bg-white/20 font-medium{% endif %}">收支报表</a>
+                    <a href="/finance-review" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/finance-review' in request.url.path %}bg-white/20 font-medium{% endif %}">支出审核</a>
+                    <a href="/finance-budget" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/finance-budget' in request.url.path %}bg-white/20 font-medium{% endif %}">预算管理</a>
+                    <a href="/finance-profit" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/finance-profit' in request.url.path %}bg-white/20 font-medium{% endif %}">利润表</a>
                     <div class="space-y-0.5">
                         <div class="flex items-center gap-1.5 pl-9 pr-2 py-1.5 text-xs text-blue-300 font-medium">
                             <svg class="icon-sm" aria-hidden="true"><use href="#icon-chart-bar"/></svg> 业绩总览
@@ -167,6 +145,7 @@
                             <a href="/performance/checkins" class="block pl-9 pr-2 py-1 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/performance/checkins' in request.url.path %}bg-white/20 font-medium{% endif %}">进场统计</a>
                         </div>
                     </div>
+                    <a href="/analytics" class="block pl-9 pr-2 py-1.5 rounded-lg text-sm transition-colors duration-150 hover:bg-white/10 {% if '/analytics' in request.url.path %}bg-white/20 font-medium{% endif %}">数据分析看板</a>
                 </div>
             </div>
 
@@ -191,7 +170,7 @@
 
         <!-- 底部版本信息 -->
         <div class="px-4 py-3 border-t border-white/10 text-blue-300 text-xs">
-            v3.8.6 © 健身管理系统
+            v3.8.7 © 健身管理系统
         </div>
     </aside>
 

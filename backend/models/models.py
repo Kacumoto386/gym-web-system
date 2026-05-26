@@ -610,6 +610,9 @@ class FinanceExpense(Base):
     void_reason = Column(Text, default="", comment="作废原因")
     void_time = Column(DateTime, nullable=True, comment="作废时间")
     void_operator = Column(String(50), default="", comment="作废操作人")
+    approval_status = Column(String(10), default="已通过", comment="审核状态(待审核/已通过/已驳回)")
+    approver = Column(String(50), default="", comment="审核人")
+    approve_time = Column(DateTime, nullable=True, comment="审核时间")
 
     created_at = Column(DateTime, default=datetime.now)
 
@@ -673,5 +676,25 @@ class Alert(Base):
     processor = Column(String(50), default="", comment="处理人")
     result = Column(Text, default="", comment="处理结果")
     batch_no = Column(String(50), default="", comment="批次号")
+
+
+# ═══════════════════════════════════════════
+# 10. 预算管理
+# ═══════════════════════════════════════════
+
+class Budget(Base):
+    """预算管理"""
+    __tablename__ = "budget"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    budget_id = Column(String(20), unique=True, nullable=False, comment="预算编号")
+    month = Column(String(7), nullable=False, comment="预算月份(YYYY-MM)")
+    category = Column(String(50), nullable=False, comment="预算类别")
+    type = Column(String(10), nullable=False, comment="类型(income/expense)")
+    planned_amount = Column(DECIMAL(10, 2), default=0, comment="预算金额")
+    note = Column(Text, default="", comment="备注")
+    store_id = Column(String(20), default="", comment="门店编号")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     created_at = Column(DateTime, default=datetime.now)

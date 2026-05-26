@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timedelta
 from backend.database import get_db
+from backend.routers.operation_log import record_log
 from backend.models.models import MembershipCard
 from backend.services.id_gen import generate_id
 from pydantic import BaseModel
@@ -398,10 +399,21 @@ def sell_card(
 # ═══════════════════════════════════════════
 
 @router.delete("/sold/{card_id}")
-def delete_sold(card_id: str, db: Session = Depends(get_db)):
+def delete_sold(card_id: str, request: Request, db: Session = Depends(get_db)):
     c = db.query(MembershipCard).filter(MembershipCard.card_id == card_id, MembershipCard.is_product == 0).first()
     if not c:
         raise HTTPException(404, "售卡记录不存在")
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "会籍卡", card_id, f"删除售卡记录：{card_id}")
     db.delete(c)
     db.commit()
     return {"success": True}
@@ -429,6 +441,7 @@ def void_sold_card(card_id: str, data: VoidRequest, request: Request, db: Sessio
     c.void_reason = data.reason
     c.void_time = datetime.now()
     c.void_operator = operator
+    record_log(db, operator, "void", "会籍卡", card_id, f"作废会籍卡：{card_id}")
     db.commit()
     return {"success": True, "message": f"售卡记录 {card_id} 已作废"}
 

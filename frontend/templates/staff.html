@@ -33,7 +33,7 @@
                     class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <form hx-post="/api/staff" hx-target="#staffTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addModal').classList.add('hidden'); this.reset();}">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm text-gray-600 mb-1">姓名 *</label>
                     <input name="name" required class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
@@ -84,7 +84,7 @@
                     class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <form id="editForm" hx-put="" hx-target="#staffTable" hx-on::after-request="if(event.detail.successful){document.getElementById('editModal').classList.add('hidden');}">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label class="block text-sm text-gray-600 mb-1">姓名 *</label><input name="name" id="edit_name" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">性别</label>
                     <select name="gender" id="edit_gender" class="w-full px-3 py-2 border rounded-lg text-sm">

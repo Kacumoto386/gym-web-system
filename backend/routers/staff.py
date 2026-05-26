@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from backend.database import get_db
+from backend.routers.operation_log import record_log
 from backend.models.models import Staff
 from backend.services.id_gen import generate_id
 from pydantic import BaseModel
@@ -40,12 +41,12 @@ def _build_table(rows: list) -> str:
                 <button class="text-red-500 hover:text-red-700" hx-delete="/api/staff/{s.staff_id}" hx-target="#staffTable" hx-confirm="确认删除员工 {s.name}？">删除</button>
             </td>
         </tr>"""
-    return f"""<table class="w-full bg-white rounded-lg shadow-sm">
+    return f"""<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">姓名</th><th class="px-4 py-3">性别</th><th class="px-4 py-3">手机号</th><th class="px-4 py-3">岗位</th><th class="px-4 py-3">基本工资</th><th class="px-4 py-3">销售提成</th><th class="px-4 py-3">状态</th><th class="px-4 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
-    </table>"""
+    </table></div>"""
 
 
 @router.get("/table", response_class=HTMLResponse)
@@ -196,6 +197,17 @@ def delete_staff(staff_id: str, request: Request, db: Session = Depends(get_db))
     staff = db.query(Staff).filter(Staff.staff_id == staff_id).first()
     if not staff:
         raise HTTPException(status_code=404, detail="员工不存在")
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "员工", staff_id, f"删除员工：{staff.name}({staff_id})")
     db.delete(staff)
     db.commit()
 

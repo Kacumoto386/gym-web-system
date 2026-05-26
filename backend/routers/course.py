@@ -81,7 +81,7 @@ def _build_table(rows: list) -> str:
                 </div>
             </td>
         </tr>"""
-    return f"""<table class="w-full bg-white rounded-lg shadow-sm">
+    return f"""<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr>
                 <th class="px-3 py-3 w-8"><input type="checkbox" id="selectAll" class="rounded border-gray-300 text-blue-600" onchange="toggleSelectAll(this)"></th>
@@ -97,7 +97,7 @@ def _build_table(rows: list) -> str:
             </tr>
         </thead>
         <tbody>{trs}</tbody>
-    </table>"""
+    </table></div>"""
 
 
 # ═══════════════════════════════════════════

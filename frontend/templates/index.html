@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+<link rel="stylesheet" href="/static/css/chat-widget.css">
 
 <!-- 统计卡片 -->
 <div id="dashboardStats" hx-get="/api/dashboard/stats" hx-trigger="load" hx-swap="innerHTML">
@@ -177,121 +178,58 @@
     </div>
 </div>
 
-<!-- 近7日趋势 -->
-<div class="mt-5" id="dashboardTrends" hx-get="/api/dashboard/trends" hx-trigger="load" hx-swap="innerHTML">
-    <div class="text-center py-6 text-gray-400 text-sm">加载趋势数据...</div>
+<!-- 趋势图 + Top10 + 今日待办 -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
+    <!-- 左：趋势图（占2列） -->
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><use href="#icon-trending-up"/></svg>
+                    <span class="text-sm font-medium text-gray-700">趋势图</span>
+                </div>
+                <div class="flex gap-1 text-xs">
+                    <button id="trendTabCheckin" class="px-2.5 py-1 rounded bg-blue-600 text-white" onclick="switchTrendTab('checkin')">进场</button>
+                    <button id="trendTabRegister" class="px-2.5 py-1 rounded text-gray-500 hover:bg-gray-100" onclick="switchTrendTab('register')">注册</button>
+                    <button id="trendTabRevenue" class="px-2.5 py-1 rounded text-gray-500 hover:bg-gray-100" onclick="switchTrendTab('revenue')">营收</button>
+                </div>
+            </div>
+            <!-- 进场趋势（默认，保留原 CSS 条形图） -->
+            <div id="trendChartCheckin" hx-get="/api/dashboard/trends" hx-trigger="load" hx-swap="innerHTML">
+                <div class="text-center py-4 text-gray-400 text-sm">加载趋势...</div>
+            </div>
+            <!-- 注册趋势（Chart.js） -->
+            <div id="trendChartRegister" style="display:none">
+                <canvas id="registerTrendChart" class="w-full" style="height:180px"></canvas>
+            </div>
+            <!-- 月营收趋势（Chart.js） -->
+            <div id="trendChartRevenue" style="display:none">
+                <canvas id="revenueTrendChart" class="w-full" style="height:180px"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右：今日待办 -->
+    <div class="lg:col-span-1">
+        <div id="todayTasks" hx-get="/api/dashboard/today-tasks" hx-trigger="load" hx-swap="innerHTML">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                <div class="text-xs font-medium text-gray-500 mb-2">📋 今日待办</div>
+                <div class="text-center py-4 text-gray-400 text-xs">加载中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top 10 榜单 -->
+<div class="mt-5" id="dashboardTop10" hx-get="/api/dashboard/top10" hx-trigger="load" hx-swap="innerHTML">
+    <div class="text-center py-6 text-gray-400 text-sm">加载榜单数据...</div>
 </div>
 
 {% block page_js %}
 <script src="/static/js/index.js"></script>
+<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/chat-widget.js"></script>
 {% endblock %}
-
-<!-- ========== AI 助手浮动窗口 ========== -->
-<style>
-#chatToggle {
-    position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999;
-    width:64px; height:64px; border-radius:50%;
-    background:linear-gradient(135deg,#3b82f6,#2563eb);
-    color:#fff; border:none; cursor:pointer;
-    box-shadow:0 4px 20px rgba(59,130,246,.4);
-    font-size:24px; display:flex; align-items:center; justify-content:center;
-    transition:all .3s ease;
-}
-#chatToggle:hover{transform:scale(1.1);box-shadow:0 6px 25px rgba(59,130,246,.5)}
-#chatToggle.open{background:#ef4444;transform:rotate(45deg)}
-
-#chatDialog {
-    position:fixed; bottom:6rem; right:1.5rem; z-index:9998;
-    width:480px; height:640px;
-    background:#fff; border-radius:16px;
-    box-shadow:0 10px 40px rgba(0,0,0,.15);
-    display:none; flex-direction:column; overflow:hidden;
-}
-#chatDialog.show{display:flex;animation:chatSlideUp .3s ease}
-@keyframes chatSlideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-
-.chat-hd {
-    background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff;
-    padding:12px 16px; font-size:14px; font-weight:600; flex-shrink:0;
-}
-.chat-hd button{background:0;border:0;color:#fff;font-size:22px;cursor:pointer;opacity:.8;padding:0;line-height:1}
-.chat-hd button:hover{opacity:1}
-
-#chatMsgs {
-    flex:1; overflow-y:auto; padding:16px; font-size:14px; line-height:1.7;
-    background:#f8fafc;
-}
-#chatMsgs::-webkit-scrollbar{width:4px}
-#chatMsgs::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
-
-.chat-msg{margin-bottom:12px;padding:10px 14px;border-radius:12px;max-width:88%;word-break:break-word}
-.chat-msg.user{background:#3b82f6;color:#fff;margin-left:auto;border-bottom-right-radius:4px}
-.chat-msg.assistant{background:#fff;color:#1e293b;margin-right:auto;border:1px solid #e2e8f0;border-bottom-left-radius:4px}
-.chat-msg.assistant p{margin:0 0 6px}
-.chat-msg.assistant p:last-child{margin-bottom:0}
-.chat-msg.assistant code{
-    background:#f1f5f9;color:#dc2626;padding:1px 5px;border-radius:4px;
-    font-size:12px;font-family:'Courier New',monospace;
-}
-.chat-msg.assistant pre{
-    background:#1e293b;color:#e2e8f0;padding:10px;border-radius:8px;
-    overflow-x:auto;font-size:12px;line-height:1.5;margin:6px 0;
-    position:relative;
-}
-.chat-msg.assistant pre code{background:0;color:inherit;padding:0;font-size:12px}
-.chat-msg.assistant .copy-btn{
-    position:absolute;top:4px;right:4px;background:rgba(255,255,255,.1);
-    color:#94a3b8;border:none;border-radius:4px;padding:2px 8px;
-    font-size:11px;cursor:pointer;
-}
-.chat-msg.assistant .copy-btn:hover{background:rgba(255,255,255,.2);color:#fff}
-.chat-msg.assistant table{border-collapse:collapse;margin:6px 0;width:100%;font-size:12px}
-.chat-msg.assistant th,.chat-msg.assistant td{
-    border:1px solid #e2e8f0;padding:4px 8px;text-align:left;
-}
-.chat-msg.assistant th{background:#f1f5f9;font-weight:600}
-.chat-msg.assistant hr{border:0;border-top:1px solid #e2e8f0;margin:8px 0}
-.chat-msg.assistant blockquote{
-    border-left:3px solid #3b82f6;padding:4px 10px;margin:6px 0;
-    background:#f8fafc;color:#64748b;
-}
-.chat-msg.assistant ul{margin:4px 0;padding-left:18px}
-.chat-msg.assistant li{margin:2px 0}
-
-.chat-tag{
-    display:inline-block;padding:3px 10px;margin:2px;
-    background:#e8f0fe;color:#3b82f6;border-radius:12px;
-    font-size:12px;cursor:pointer;transition:all .15s;
-}
-.chat-tag:hover{background:#3b82f6;color:#fff}
-
-.chat-ftr{
-    padding:10px 14px;border-top:1px solid #e2e8f0;
-    display:flex;gap:8px;background:#fff;flex-shrink:0;
-}
-.chat-ftr input{
-    flex:1;padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;
-    font-size:14px;outline:0;
-}
-.chat-ftr input:focus{border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.1)}
-.chat-ftr button{
-    padding:10px 20px;background:#3b82f6;color:#fff;border:none;
-    border-radius:10px;font-size:14px;cursor:pointer;white-space:nowrap;
-}
-.chat-ftr button:hover{background:#2563eb}
-.chat-ftr button:disabled{opacity:.5;cursor:not-allowed}
-
-.chat-loading{display:flex;gap:4px;padding:4px 0}
-.chat-loading span{width:6px;height:6px;background:#94a3b8;border-radius:50%;animation:chatBounce 1.4s infinite}
-.chat-loading span:nth-child(2){animation-delay:.2s}
-.chat-loading span:nth-child(3){animation-delay:.4s}
-@keyframes chatBounce{0%,80%,100%{transform:scale(.6)}40%{transform:scale(1)}}
-
-@media(max-width:640px){
-    #chatDialog{width:100%;height:80vh;bottom:0;right:0;border-radius:16px 16px 0 0}
-    #chatToggle{bottom:.75rem;right:.75rem}
-}
-</style>
 
 <div id="chatToggle" onclick="toggleChat()" title="AI 助手">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -330,164 +268,4 @@
     </div>
 </div>
 
-<script>
-// ── AI 助手浮动窗口 ──
-var _chatOpen = false;
-var _chatLoading = false;
-var _chatMsgId = 0;
-
-function toggleChat() {
-    _chatOpen = !_chatOpen;
-    var d = document.getElementById('chatDialog');
-    var t = document.getElementById('chatToggle');
-    d.className = _chatOpen ? 'show' : '';
-    t.className = _chatOpen ? 'open' : '';
-    if (_chatOpen) {
-        setTimeout(function(){ document.getElementById('chatInput').focus(); }, 350);
-    }
-}
-
-function addMsg(role, html) {
-    var el = document.createElement('div');
-    el.className = 'chat-msg ' + role;
-    el.innerHTML = html;
-    el.id = 'chatMsg_' + (++_chatMsgId);
-    document.getElementById('chatMsgs').appendChild(el);
-    el.scrollIntoView({behavior:'smooth',block:'end'});
-    return el;
-}
-
-function addLoading() {
-    var el = document.createElement('div');
-    el.className = 'chat-msg assistant';
-    el.id = 'chatLoading';
-    el.innerHTML = '<div class="chat-loading"><span></span><span></span><span></span></div>';
-    document.getElementById('chatMsgs').appendChild(el);
-    el.scrollIntoView({behavior:'smooth',block:'end'});
-}
-
-function removeLoading() {
-    var el = document.getElementById('chatLoading');
-    if (el) el.remove();
-}
-
-// 简易 Markdown 渲染
-function renderMd(text) {
-    if (!text) return '';
-    // 转义 HTML
-    text = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    // 过滤垃圾
-    text = text.replace(/\[object Object\]/g,'').replace(/```tool_calls?\n[\s\S]*?```/g,'');
-    // 代码块（必须在其他标记之前）
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
-        var langCls = lang ? ' class="lang-'+lang+'"' : '';
-        return '<pre><button class="copy-btn" onclick="(function(b){var t=b.nextElementSibling||b.parentNode.querySelector(\'code\');navigator.clipboard.writeText(t.textContent).then(function(){b.textContent=\'已复制\';setTimeout(function(){b.textContent=\'复制\'},1500)})})(this)">复制</button><code'+langCls+'>'+code.trim()+'</code></pre>';
-    });
-    // 行内代码
-    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-    // 表格
-    text = text.replace(/^\|(.+)\|$/gm, function(m, row) {
-        var cells = row.split('|');
-        var isHeader = /^[\s:-]+$/.test(cells[1] && cells[1].trim());
-        if (isHeader) return '';
-        var tag = 'td';
-        // 检测上一行是否表头分隔符
-        return '<tr>' + cells.map(function(c){return '<'+tag+'>'+c.trim()+'</'+tag+'>';}).join('') + '</tr>';
-    });
-    // 标题
-    text = text.replace(/^### (.+)$/gm, '<h4 style="margin:8px 0 4px;font-size:14px;font-weight:600">$1</h4>');
-    text = text.replace(/^## (.+)$/gm, '<h4 style="margin:8px 0 4px;font-size:14px;font-weight:600">$1</h4>');
-    text = text.replace(/^# (.+)$/gm, '<h4 style="margin:8px 0 4px;font-size:14px;font-weight:600">$1</h4>');
-    // 粗体 + 斜体
-    text = text.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    // 链接
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#3b82f6;text-decoration:underline">$1</a>');
-    // 分割线
-    text = text.replace(/^---$/gm, '<hr>');
-    // 引用
-    text = text.replace(/^>\s?(.+)$/gm, '<blockquote>$1</blockquote>');
-    // 无序列表
-    text = text.replace(/^[-*]\s(.+)$/gm, '<li>$1</li>');
-    text = text.replace(/(<li>.*<\/li>\n?)/g, '<ul>$1</ul>');
-    // 合并相邻 ul
-    text = text.replace(/<\/ul>\n?<ul>/g, '');
-    // 段落（剩余文本换行转段落）
-    var lines = text.split('\n');
-    var result = [];
-    var inTable = false;
-    for (var i=0; i<lines.length; i++) {
-        var line = lines[i].trim();
-        if (!line) { if (!inTable) result.push(''); continue; }
-        if (line.startsWith('<pre') || line.startsWith('<h4') || line.startsWith('<blockquote') || line.startsWith('<hr') || line.startsWith('<ul') || line.startsWith('<tr')) {
-            inTable = line.startsWith('<tr');
-            result.push(line);
-        } else if (line.startsWith('</')) {
-            result.push(line);
-            inTable = false;
-        } else {
-            result.push(line);
-        }
-    }
-    var html = result.join('\n');
-    // 表格包裹（首行→thead，其余→tbody）
-    html = html.replace(/((?:<tr>[\s\S]*?<\/tr>\n?)+)/g, function(m) {
-        var rows = m.match(/<tr>[\s\S]*?<\/tr>/g) || [];
-        if (rows.length===0) return m;
-        var thead = rows[0].replace(/<td>/g,'<th>').replace(/<\/td>/g,'</th>');
-        var tbody = rows.slice(1).join('\n');
-        return '<table><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table>';
-    });
-    // 剩余文本段落化
-    html = html.replace(/^(?!<[hupbcht]|<\/)(.+)$/gm, '<p>$1</p>');
-    // 清理空段落
-    html = html.replace(/<p>\s*<\/p>/g, '');
-    return html;
-}
-
-function sendMsg() {
-    if (_chatLoading) return;
-    var input = document.getElementById('chatInput');
-    var text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    document.getElementById('chatSendBtn').disabled = true;
-    addMsg('user', '<p>'+text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</p>');
-
-    // 移除欢迎语里的快捷标签
-    var firstMsg = document.querySelector('#chatMsgs .chat-msg.assistant:first-child .chat-tag');
-    if (firstMsg) {
-        var tags = document.querySelectorAll('#chatMsgs .chat-msg.assistant:first-child .chat-tag');
-        tags.forEach(function(t){t.parentNode.removeChild(t)});
-    }
-
-    addLoading();
-    _chatLoading = true;
-
-    fetch('/api/chat/message', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({message:text, session_id:'widget'})
-    }).then(function(r) {
-        if (!r.ok) throw new Error('请求失败');
-        return r.json();
-    }).then(function(data) {
-        removeLoading();
-        addMsg('assistant', renderMd(data.reply || ''));
-    }).catch(function(e) {
-        removeLoading();
-        addMsg('assistant', '<p style="color:#dc2626">❌ 请求失败: '+e.message+'</p>');
-    }).finally(function() {
-        _chatLoading = false;
-        document.getElementById('chatSendBtn').disabled = false;
-        document.getElementById('chatInput').focus();
-    });
-}
-
-function quickAsk(text) {
-    document.getElementById('chatInput').value = text;
-    sendMsg();
-}
-</script>
 {% endblock %}

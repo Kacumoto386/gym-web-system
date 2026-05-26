@@ -49,7 +49,7 @@
     <!-- 中间：统计摘要 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
         <div class="text-sm text-gray-500 mb-3">会员统计</div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div class="bg-blue-50 rounded-lg p-3 text-center">
                 <div class="text-xs text-gray-500">累计签到</div>
                 <div class="text-xl font-bold text-blue-700">{{ member.total_checkin_days or 0 }}</div>
@@ -108,6 +108,53 @@
     </div>
 </div>
 
+<!-- 会员画像卡片 -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-5">
+    <div class="flex items-center gap-2 mb-3">
+        <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">会员画像</span>
+    </div>
+    <div class="flex flex-wrap gap-4">
+        <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-xs text-gray-400">等级</span>
+            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">{{ member.level or '普通' }}</span>
+            <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{{ member.gender or '未知' }}</span>
+            <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{{ member.age or '?' }}岁</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-gray-400">来源</span>
+            <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">{{ member.source or '未知' }}</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-gray-400">跟进员工</span>
+            <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">{{ member.staff_name or '无' }}</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-gray-400">累计充值</span>
+            <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-mono">¥{{ "%.0f"|format(member.recharge_total or 0) }}</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-gray-400">剩余课时</span>
+            <span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-mono">{{ member.remaining_lessons or 0 }} 节</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-gray-400">储值余额</span>
+            <span class="px-2 py-0.5 bg-cyan-100 text-cyan-700 rounded text-xs font-mono">¥{{ "%.0f"|format(member.balance or 0) }}</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-gray-400">近7天进场</span>
+            <span class="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs font-mono">{{ profile.last_7d_checkins }} 次</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-gray-400">累计上课</span>
+            <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded text-xs font-mono">{{ profile.total_class_count }} 次</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <span class="text-xs text-gray-400">最近签到</span>
+            <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{{ member.last_checkin_date or '暂无' }}</span>
+        </div>
+    </div>
+</div>
+
 <!-- Tab 导航 -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100">
     <div class="flex gap-0 border-b border-gray-200">
@@ -145,7 +192,10 @@
             <div class="text-center py-8 text-gray-400">加载中...</div>
         </div>
         <div id="tabBodyContent" style="display:none">
-            <div class="text-center py-8 text-gray-400">加载中...</div>
+            <canvas id="bodyTrendChart" class="w-full mb-4" style="max-height:240px"></canvas>
+            <div id="tabBodyInner" hx-get="/api/members/{{ member_id }}/body-measurements-html" hx-trigger="load" hx-target="this" hx-swap="outerHTML">
+                <div class="text-center py-8 text-gray-400">加载中...</div>
+            </div>
         </div>
         <div id="tabPurchasesContent" style="display:none">
             <div class="text-center py-8 text-gray-400">加载中...</div>

@@ -21,7 +21,7 @@
                     class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <form hx-post="/api/recharges" hx-swap="none" hx-on::after-request="if(event.detail.successful){document.getElementById('addModal').classList.add('hidden'); this.reset(); document.getElementById('memberSearch').value=''; htmx.ajax('GET','/api/recharges/table?_='+Date.now(),{target:'#rechargeTable',swap:'innerHTML'});}" onsubmit="return validateRechargeForm()">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div class="col-span-2 relative">
                     <label class="block text-sm text-gray-600 mb-1">选择会员 *</label>
                     <input type="text" id="memberSearch" placeholder="输入姓名、手机号或编号搜索..."
@@ -57,99 +57,8 @@
         </form>
     </div>
 </div>
-<script>
-let selectedMember = null;
-let searchTimer = null;
+{% endblock %}
 
-function openAddModal() {
-    document.getElementById('addModal').classList.remove('hidden');
-    selectedMember = null;
-    document.getElementById('memberId').value = '';
-    document.getElementById('memberName').value = '';
-    document.getElementById('memberSearch').value = '';
-    document.getElementById('memberDropdown').classList.add('hidden');
-    document.getElementById('memberError').classList.add('hidden');
-    // 默认充值日期为今天
-    const today = new Date().toISOString().split('T')[0];
-    document.querySelector('#addModal input[name="recharge_date"]').value = today;
-    // 加载在职员工列表
-    loadActiveStaff();
-}
-
-function loadActiveStaff() {
-    const sel = document.getElementById('operatorSelect');
-    sel.innerHTML = '<option value="">请选择</option>';
-    fetch('/api/staff/search-json?q=')
-        .then(r => r.json())
-        .then(data => {
-            data.filter(s => s.status === '在职').forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.name;
-                opt.textContent = s.name;
-                sel.appendChild(opt);
-            });
-        })
-        .catch(() => {});
-}
-
-function searchMember(q) {
-    clearTimeout(searchTimer);
-    document.getElementById('memberId').value = '';
-    document.getElementById('memberName').value = '';
-    selectedMember = null;
-
-    q = q.trim();
-    if (!q) {
-        document.getElementById('memberDropdown').classList.add('hidden');
-        return;
-    }
-
-    searchTimer = setTimeout(() => {
-        fetch('/api/members/search-json?q=' + encodeURIComponent(q))
-            .then(r => r.json())
-            .then(data => {
-                const dd = document.getElementById('memberDropdown');
-                if (!data || data.length === 0) {
-                    dd.innerHTML = '<div class="px-3 py-2 text-sm text-gray-400">未找到匹配会员</div>';
-                    dd.classList.remove('hidden');
-                    return;
-                }
-                dd.innerHTML = data.map(m =>
-                    `<div class="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b flex justify-between items-center"
-                          onclick="selectMember('${m.member_id}', '${m.name.replace(/'/g, "\\'")}', '${(m.phone || '').replace(/'/g, "\\'")}')">
-                        <span>${m.name}</span>
-                        <span class="text-gray-400 text-xs">${m.phone || ''} ${m.member_id}</span>
-                    </div>`
-                ).join('');
-                dd.classList.remove('hidden');
-            });
-    }, 300);
-}
-
-function selectMember(id, name, phone) {
-    document.getElementById('memberId').value = id;
-    document.getElementById('memberName').value = name;
-    document.getElementById('memberSearch').value = name + ' (' + phone + ' ' + id + ')';
-    document.getElementById('memberDropdown').classList.add('hidden');
-    selectedMember = id;
-    document.getElementById('memberError').classList.add('hidden');
-}
-
-function validateRechargeForm() {
-    if (!selectedMember) {
-        document.getElementById('memberError').classList.remove('hidden');
-        document.getElementById('memberSearch').focus();
-        return false;
-    }
-    return true;
-}
-
-// 点击页面其他区域关闭下拉
-document.addEventListener('click', function(e) {
-    const dd = document.getElementById('memberDropdown');
-    if (dd && !e.target.closest('.col-span-2')) {
-        dd.classList.add('hidden');
-    }
-});
-</script>
+{% block page_js %}
+<script src="/static/js/recharges.js"></script>
 {% endblock %}

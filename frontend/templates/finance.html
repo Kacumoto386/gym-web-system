@@ -64,7 +64,7 @@
             <button onclick="document.getElementById('addIncomeModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <form id="incomeForm">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label><input name="income_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label>
                     <select name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
@@ -96,7 +96,7 @@
             <button onclick="document.getElementById('addExpenseModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <form id="expenseForm">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label><input name="expense_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label>
                     <select name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
@@ -129,7 +129,7 @@
         </div>
         <form id="editIncomeForm">
             <input type="hidden" id="editIncomeId" name="id">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label><input id="editIncomeDate" name="income_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label>
                     <select id="editIncomeCategory" name="category" class="w-full px-3 py-2 border rounded-lg text-sm">
@@ -162,7 +162,7 @@
         </div>
         <form id="editExpenseForm">
             <input type="hidden" id="editExpenseId" name="id">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div><label class="block text-sm text-gray-600 mb-1">日期</label><input id="editExpenseDate" name="expense_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">类别</label>
                     <select id="editExpenseCategory" name="category" class="w-full px-3 py-2 border rounded-lg text-sm">

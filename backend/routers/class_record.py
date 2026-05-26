@@ -11,7 +11,9 @@ from sqlalchemy import func
 from datetime import date, datetime
 from backend.database import get_db
 from backend.models.models import ClassRecord, Member
+from backend.routers.operation_log import record_log
 from backend.services.id_gen import generate_id
+from backend.utils.response import success
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/class-records", tags=["上课管理"])
@@ -133,12 +135,12 @@ def _build_table(rows: list) -> str:
                 </div>
             </td>
         </tr>"""
-    return f"""<table class="w-full bg-white rounded-lg shadow-sm">
+    return f"""<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr><th class="px-3 py-3">编号</th><th class="px-3 py-3">会员</th><th class="px-3 py-3">手机号</th><th class="px-3 py-3">课程</th><th class="px-3 py-3">教练</th><th class="px-3 py-3">日期</th><th class="px-3 py-3">时间</th><th class="px-3 py-3">课时</th><th class="px-3 py-3">状态</th><th class="px-3 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
-    </table>"""
+    </table></div>"""
 
 
 @router.get("/table", response_class=HTMLResponse)
@@ -221,7 +223,7 @@ def update_evaluation(record_id: str, data: EvaluationUpdate, db: Session = Depe
     if data.feedback:
         record.feedback = data.feedback.strip()
     db.commit()
-    return {"success": True, "evaluation": record.evaluation}
+    return success(data={"evaluation": record.evaluation})
 
 
 # ═══════════════════════════════════════════
@@ -395,15 +397,26 @@ def void_class_record(record_id: str, data: VoidRequest, request: Request, db: S
     record.void_reason = data.reason
     record.void_time = datetime.now()
     record.void_operator = operator
+    record_log(db, operator, "void", "上课记录", record_id, f"作废上课记录：{record.course_name}({record.member_name})")
     db.commit()
-    return {"success": True, "message": f"上课记录 {record_id} 已作废"}
+    return success(message=f"上课记录 {record_id} 已作废")
 
 
 @router.delete("/{record_id}")
-def delete_class_record(record_id: str, db: Session = Depends(get_db)):
+def delete_class_record(record_id: str, request: Request, db: Session = Depends(get_db)):
     record = db.query(ClassRecord).filter(ClassRecord.record_id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="上课记录不存在")
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "上课记录", record_id, f"删除上课记录：{record.course_name}({record.member_name})")
     db.delete(record)
     db.commit()
-    return {"success": True, "message": f"上课记录 {record_id} 已删除"}
+    return success(message=f"上课记录 {record_id} 已删除")

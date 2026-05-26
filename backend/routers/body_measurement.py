@@ -40,12 +40,12 @@ def _build_table(rows: list) -> str:
                 <button class="text-red-500 hover:text-red-700" hx-delete="/api/body-measurements/{b.measure_id}" hx-target="#bodyTable" hx-confirm="确认删除此体测记录？">删除</button>
             </td>
         </tr>"""
-    return f"""<table class="w-full bg-white rounded-lg shadow-sm">
+    return f"""<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">会员</th><th class="px-4 py-3">会员编号</th><th class="px-4 py-3">日期</th><th class="px-4 py-3">身高</th><th class="px-4 py-3">体重</th><th class="px-4 py-3">体脂率</th><th class="px-4 py-3">BMI</th><th class="px-4 py-3">肌肉量</th><th class="px-4 py-3">基础代谢</th><th class="px-4 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
-    </table>"""
+    </table></div>"""
 
 
 @router.get("/table", response_class=HTMLResponse)

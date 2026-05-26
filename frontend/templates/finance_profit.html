@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="px-6 py-5">
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-lg font-bold text-gray-800">利润表</h1>
+        <button class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700" onclick="exportProfit()">导出 CSV</button>
+    </div>
+
+    <!-- 年月选择 -->
+    <div class="flex items-center gap-2 mb-4">
+        <label class="text-sm text-gray-500">年月</label>
+        <input type="month" id="profitMonth" class="px-3 py-1.5 border rounded text-sm" onchange="loadProfit()">
+    </div>
+
+    <!-- 概览卡片 -->
+    <div id="profitSummary" hx-get="/api/finance-profit/summary" hx-trigger="load" hx-swap="innerHTML">
+        <div class="text-center py-4 text-gray-400 text-sm">加载利润表...</div>
+    </div>
+
+    <!-- 营收构成 + 支出构成 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">📈 营收构成</h3>
+            <div id="revenueBreakdown" hx-get="/api/finance-profit/revenue-breakdown" hx-trigger="load" hx-swap="innerHTML">
+                <div class="text-center py-4 text-gray-400 text-sm">加载中...</div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">📉 支出构成</h3>
+            <div id="expenseBreakdown" hx-get="/api/finance-profit/expense-breakdown" hx-trigger="load" hx-swap="innerHTML">
+                <div class="text-center py-4 text-gray-400 text-sm">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 环比 + 同比 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">🔄 环比（上月）</h3>
+            <div id="momComparison" hx-get="/api/finance-profit/mom-comparison" hx-trigger="load" hx-swap="innerHTML">
+                <div class="text-center py-4 text-gray-400 text-sm">加载中...</div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">📅 同比（去年同月）</h3>
+            <div id="yoyComparison" hx-get="/api/finance-profit/yoy-comparison" hx-trigger="load" hx-swap="innerHTML">
+                <div class="text-center py-4 text-gray-400 text-sm">加载中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script src="/static/js/finance_profit.js"></script>
+{% endblock %}

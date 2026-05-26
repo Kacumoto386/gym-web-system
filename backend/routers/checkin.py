@@ -4,11 +4,13 @@
 V3.1.7 — 扫码进场 + 自动查会员会籍卡 + 核销推荐
 """
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timedelta, timedelta
 from backend.database import get_db
+from backend.routers.operation_log import record_log
+from backend.utils.response import success, fail as api_fail
 from backend.models.models import Checkin, Wristband, Member, MembershipCard, MembershipCard
 from backend.services.id_gen import generate_id
 from pydantic import BaseModel
@@ -47,12 +49,12 @@ def _build_band_table(rows: list) -> str:
                 <button class="text-red-500 hover:text-red-700" hx-delete="/api/wristbands/{b.band_id}" hx-target="#wristbandTable" hx-confirm="确认删除此手环？">删除</button>
             </td>
         </tr>"""
-    return f"""<table class="w-full bg-white rounded-lg shadow-sm">
+    return f"""<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">读卡器值</th><th class="px-4 py-3">自定义编号</th><th class="px-4 py-3">状态</th><th class="px-4 py-3">绑定会员</th><th class="px-4 py-3">会员编号</th><th class="px-4 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
-    </table>"""
+    </table></div>"""
 
 
 @router.get("/wristbands/table", response_class=HTMLResponse)
@@ -369,6 +371,7 @@ def list_checkins(
 
 @router.post("/checkins")
 def create_checkin(
+    request: Request,
     member_id: str = Form(...),
     member_name: str = Form(...),
     checkin_type: str = Form(""),
@@ -458,7 +461,18 @@ def create_checkin(
 
     db.add(checkin)
     db.commit()
-    return {"success": True, "checkin_id": checkin_id, "message": f"{member_name} 进场成功", "consume_note": consume_note}
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "create", "进场记录", checkin_id, f"会员进场：{member_name}（{checkin_type}）")
+    return success(data={"checkin_id": checkin_id, "consume_note": consume_note}, message=f"{member_name} 进场成功")
 
 
 # ═══ 刷卡查询 ═══
@@ -496,7 +510,7 @@ def list_wristbands(
 
 
 @router.post("/wristbands", response_model=WristbandOut)
-def create_wristband(data: WristbandCreate, db: Session = Depends(get_db)):
+def create_wristband(request: Request, data: WristbandCreate, db: Session = Depends(get_db)):
     if not data.reader_value or len(data.reader_value) != 10 or not data.reader_value.isdigit():
         raise HTTPException(status_code=400, detail="读卡器写入值必须为10位数字")
     exist = db.query(Wristband).filter(Wristband.reader_value == data.reader_value).first()
@@ -509,11 +523,22 @@ def create_wristband(data: WristbandCreate, db: Session = Depends(get_db)):
     db.add(wb)
     db.commit()
     db.refresh(wb)
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "create", "手环", band_id, f"创建手环：{wb.reader_value}")
     return wb
 
 
 @router.put("/wristbands/{band_id}/bind")
-def bind_wristband(band_id: str, member_id: str, db: Session = Depends(get_db)):
+def bind_wristband(band_id: str, member_id: str, request: Request, db: Session = Depends(get_db)):
     wb = db.query(Wristband).filter(Wristband.band_id == band_id).first()
     if not wb:
         raise HTTPException(status_code=404, detail="手环不存在")
@@ -526,11 +551,22 @@ def bind_wristband(band_id: str, member_id: str, db: Session = Depends(get_db)):
     wb.status = "已绑定"
     member.wristband_id = band_id
     db.commit()
-    return {"success": True, "message": f"手环 {band_id} 已绑定给 {member.name}"}
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "bind", "手环", band_id, f"绑定手环：{band_id} -> {member.name}({member_id})")
+    return success(message=f"手环 {band_id} 已绑定给 {member.name}")
 
 
 @router.put("/wristbands/{band_id}/unbind")
-def unbind_wristband(band_id: str, db: Session = Depends(get_db)):
+def unbind_wristband(band_id: str, request: Request, db: Session = Depends(get_db)):
     wb = db.query(Wristband).filter(Wristband.band_id == band_id).first()
     if not wb:
         raise HTTPException(status_code=404, detail="手环不存在")
@@ -543,11 +579,22 @@ def unbind_wristband(band_id: str, db: Session = Depends(get_db)):
     wb.bound_time = None
     wb.status = "未绑定"
     db.commit()
-    return {"success": True, "message": f"手环 {band_id} 已解绑"}
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "unbind", "手环", band_id, f"解绑手环：{band_id}")
+    return success(message=f"手环 {band_id} 已解绑")
 
 
 @router.delete("/wristbands/{band_id}")
-def delete_wristband(band_id: str, db: Session = Depends(get_db)):
+def delete_wristband(band_id: str, request: Request, db: Session = Depends(get_db)):
     wb = db.query(Wristband).filter(Wristband.band_id == band_id).first()
     if not wb:
         raise HTTPException(status_code=404, detail="手环不存在")
@@ -555,6 +602,17 @@ def delete_wristband(band_id: str, db: Session = Depends(get_db)):
         member = db.query(Member).filter(Member.member_id == wb.bound_member_id).first()
         if member:
             member.wristband_id = ""
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "手环", band_id, f"删除手环：{band_id}")
     db.delete(wb)
     db.commit()
-    return {"success": True, "message": f"手环 {band_id} 已删除"}
+    return success(message=f"手环 {band_id} 已删除")

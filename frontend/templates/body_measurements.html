@@ -21,7 +21,7 @@
                     class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
         <form hx-post="/api/body-measurements" hx-target="#bodyTable" hx-on::after-request="if(event.detail.successful){document.getElementById('addModal').classList.add('hidden'); this.reset();}">
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div><label class="block text-sm text-gray-600 mb-1">会员编号 *</label><input name="member_id" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">会员姓名 *</label><input name="member_name" required class="w-full px-3 py-2 border rounded-lg text-sm"></div>
                 <div><label class="block text-sm text-gray-600 mb-1">体测日期</label><input name="measure_date" type="date" class="w-full px-3 py-2 border rounded-lg text-sm"></div>

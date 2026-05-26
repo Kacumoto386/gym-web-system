@@ -1,15 +1,16 @@
 """
 数据库配置
 """
-import os
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from backend.core.config import settings
 
 # 默认使用 SQLite，数据文件在项目 data 目录
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-os.makedirs(DATA_DIR, exist_ok=True)
+DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(DATA_DIR, 'gym.db')}")
+DATABASE_URL = settings.DATABASE_URL or f"sqlite:///{DATA_DIR / 'gym.db'}"
 
 engine = create_engine(
     DATABASE_URL,
@@ -31,33 +32,5 @@ def get_db():
 
 
 def init_db():
-    """创建所有表"""
+    """创建所有表（Alembic 管理后续迁移）"""
     Base.metadata.create_all(bind=engine)
-    # 迁移：新增字段
-    from sqlalchemy import text
-    with engine.connect() as conn:
-        try:
-            conn.execute(text("ALTER TABLE recharge ADD COLUMN expiry_date DATE"))
-            conn.commit()
-        except Exception:
-            pass  # 字段已存在
-        try:
-            conn.execute(text("ALTER TABLE sale ADD COLUMN course_type VARCHAR(50) DEFAULT ''"))
-            conn.commit()
-        except Exception:
-            pass  # 字段已存在
-        try:
-            conn.execute(text("ALTER TABLE membership_card ADD COLUMN actual_amount DECIMAL(10,2) DEFAULT 0"))
-            conn.commit()
-        except Exception:
-            pass  # 字段已存在
-        try:
-            conn.execute(text("ALTER TABLE membership_card ADD COLUMN staff_id VARCHAR(20) DEFAULT ''"))
-            conn.commit()
-        except Exception:
-            pass  # 字段已存在
-        try:
-            conn.execute(text("ALTER TABLE membership_card ADD COLUMN staff_name VARCHAR(50) DEFAULT ''"))
-            conn.commit()
-        except Exception:
-            pass  # 字段已存在

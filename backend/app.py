@@ -2,16 +2,8 @@
 FastAPI 应用入口
 V3.8.2 — 数据导入模块（模板下载 / Excel 上传 / 进度跟踪 / 历史记录）
 """
-import os
 import sys
 from pathlib import Path
-from dotenv import load_dotenv
-
-# 加载 .env 文件（覆盖已有环境变量）
-dotenv_path = Path(__file__).parent.parent / ".env"
-if dotenv_path.exists():
-    load_dotenv(dotenv_path, override=True)
-
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -19,9 +11,9 @@ from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from backend.database import init_db, get_db
-from backend.models.models import Member
+from backend.models.models import Member, Checkin, ClassRecord
 from backend.routers.auth import get_current_user, User
 from backend.routers.operation_log import record_log
 from backend.routers.mcp_router import router as mcp_router
@@ -29,8 +21,8 @@ from backend.routers.chat_router import router as chat_router
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.8.6 — 导入字段优化（会籍卡实收金额 / 销售员手机号匹配）",
-    version="3.8.6",
+    description="Web 版健身管理系统 V3.8.7 — 财务报表 + 数据分析看板",
+    version="3.8.7",
 )
 
 # 模板
@@ -161,6 +153,8 @@ _RESOURCE_CN_MAP = {
     "packages": "课程包", "export": "数据导出",
     "mcp": "MCP 工具", "chat": "AI 对话",
     "system": "系统设置",
+    "finance-review": "财务审核", "finance-budget": "预算管理",
+    "finance-profit": "利润表", "analytics": "数据分析",
 }
 
 
@@ -218,6 +212,30 @@ async def operation_log_middleware(request: Request, call_next):
             pass
 
     return response
+
+
+# ── 全局异常处理器 ──
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """统一 HTTPException 响应格式"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "data": None, "message": exc.detail},
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    """未捕获异常 → 500 统一格式"""
+    # 记录到服务器日志
+    import traceback
+    print(f"[500] {request.method} {request.url.path}: {exc}")
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "data": None, "message": "服务器内部错误"},
+    )
 
 
 # ── 页面路由 ──
@@ -299,6 +317,16 @@ def member_detail_page(member_id: str, request: Request, db: Session = Depends(g
     member = db.query(Member).filter(Member.member_id == member_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="会员不存在")
+
+    # 画像统计
+    week_ago = date.today() - timedelta(days=7)
+    last_7d_checkins = db.query(Checkin).filter(
+        Checkin.member_id == member_id, Checkin.checkin_date >= week_ago
+    ).count()
+    total_class_count = db.query(ClassRecord).filter(
+        ClassRecord.member_id == member_id
+    ).count()
+
     return templates.TemplateResponse(
         request=request,
         name="member_detail.html",
@@ -307,6 +335,10 @@ def member_detail_page(member_id: str, request: Request, db: Session = Depends(g
             "member": member,
             "member_id": member_id,
             "today": date.today(),
+            "profile": {
+                "last_7d_checkins": last_7d_checkins,
+                "total_class_count": total_class_count,
+            },
         },
     )
 
@@ -436,6 +468,44 @@ def finance_page(request: Request):
     )
 
 
+@app.get("/finance-review")
+def finance_review_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="finance_review.html",
+        context={"title": "支出审核"},
+    )
+
+
+@app.get("/finance-budget")
+def finance_budget_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="finance_budget.html",
+        context={"title": "预算管理"},
+    )
+
+
+@app.get("/finance-profit")
+def finance_profit_page(request: Request):
+    from datetime import date
+    today = date.today()
+    return templates.TemplateResponse(
+        request=request,
+        name="finance_profit.html",
+        context={"title": "利润表", "today": today},
+    )
+
+
+@app.get("/analytics")
+def analytics_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="analytics.html",
+        context={"title": "数据分析看板"},
+    )
+
+
 @app.get("/logs")
 def logs_page(request: Request):
     return templates.TemplateResponse(
@@ -527,11 +597,11 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.8.6", "system_name": name}
+    return {"status": "ok", "version": "3.8.7", "system_name": name}
 
 
 # 路由注册
-from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value, dashboard, import_data
+from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value, dashboard, import_data, finance_review, finance_budget, finance_profit, analytics
 app.include_router(member.router)
 app.include_router(staff.router)
 app.include_router(course.router)
@@ -558,3 +628,7 @@ app.include_router(mcp_router)
 app.include_router(chat_router)
 app.include_router(dashboard.router)
 app.include_router(import_data.router)
+app.include_router(finance_review.router)
+app.include_router(finance_budget.router)
+app.include_router(finance_profit.router)
+app.include_router(analytics.router)

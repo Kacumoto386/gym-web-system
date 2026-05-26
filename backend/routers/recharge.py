@@ -9,8 +9,10 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from datetime import date, datetime
 from backend.database import get_db
+from backend.routers.operation_log import record_log
 from backend.models.models import Recharge, Member
 from backend.services.id_gen import generate_id
+from backend.utils.response import success
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/recharges", tags=["充值管理"])
@@ -52,12 +54,12 @@ def _build_table(rows: list) -> str:
                 {actions}
             </td>
         </tr>"""
-    return f"""<table class="w-full bg-white rounded-lg shadow-sm">
+    return f"""<div class="overflow-x-auto"><table class="w-full bg-white rounded-lg shadow-sm">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr><th class="px-4 py-3">编号</th><th class="px-4 py-3">会员</th><th class="px-4 py-3">会员编号</th><th class="px-4 py-3">日期</th><th class="px-4 py-3">充值金额</th><th class="px-4 py-3">赠送金额</th><th class="px-4 py-3">实付</th><th class="px-4 py-3">支付方式</th><th class="px-4 py-3">类型</th><th class="px-4 py-3">经办人</th><th class="px-4 py-3">到期时间</th><th class="px-4 py-3">剩余余额(含赠金)</th><th class="px-4 py-3">操作</th></tr>
         </thead>
         <tbody>{trs}</tbody>
-    </table>"""
+    </table></div>"""
 
 
 @router.get("/table", response_class=HTMLResponse)
@@ -206,10 +208,21 @@ def delete_recharge(recharge_id: str, request: Request, db: Session = Depends(ge
         total = (r.amount or 0) + (r.bonus or 0)
         member.balance = max(0, (member.balance or 0) - total)
         member.recharge_total = max(0, (member.recharge_total or 0) - total)
+    # 记录操作日志
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "充值记录", recharge_id, f"删除充值记录：{r.member_name} ¥{r.amount}")
     db.delete(r)
     db.commit()
 
-    return {"success": True, "message": f"充值记录 {recharge_id} 已删除"}
+    return success(message=f"充值记录 {recharge_id} 已删除")
 
 
 @router.put("/{recharge_id}/void")
@@ -241,5 +254,6 @@ def void_recharge(recharge_id: str, data: VoidRequest, request: Request, db: Ses
     r.void_reason = data.reason
     r.void_time = datetime.now()
     r.void_operator = operator
+    record_log(db, operator, "void", "充值记录", recharge_id, f"作废充值记录：{r.member_name} ¥{r.amount}")
     db.commit()
-    return {"success": True, "message": f"充值记录 {recharge_id} 已作废"}
+    return success(message=f"充值记录 {recharge_id} 已作废")

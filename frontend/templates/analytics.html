@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="px-6 py-5">
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-lg font-bold text-gray-800">数据分析看板</h1>
+        <div class="flex gap-1">
+            <button class="px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white" id="range1m" onclick="switchRange(1)">近1月</button>
+            <button class="px-3 py-1.5 rounded text-sm bg-gray-200 text-gray-600 hover:bg-gray-300" id="range3m" onclick="switchRange(3)">近3月</button>
+            <button class="px-3 py-1.5 rounded text-sm bg-gray-200 text-gray-600 hover:bg-gray-300" id="range12m" onclick="switchRange(12)">近12月</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- 1. 营收趋势 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">📈 营收趋势</h3>
+            <canvas id="revenueTrendChart" class="w-full" style="height:220px"></canvas>
+        </div>
+        <!-- 2. 营收构成 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">🍩 营收构成</h3>
+            <canvas id="revenueCompositionChart" class="w-full" style="height:220px"></canvas>
+        </div>
+        <!-- 3. 支出趋势 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">📉 支出趋势</h3>
+            <canvas id="expenseTrendChart" class="w-full" style="height:220px"></canvas>
+        </div>
+        <!-- 4. 收支对比 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">📊 收支对比</h3>
+            <canvas id="incomeVsExpenseChart" class="w-full" style="height:220px"></canvas>
+        </div>
+        <!-- 5. 会员增长 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">👥 会员增长</h3>
+            <canvas id="memberGrowthChart" class="w-full" style="height:220px"></canvas>
+        </div>
+        <!-- 6. 进场高峰时段 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">🕐 进场高峰时段</h3>
+            <canvas id="peakHoursChart" class="w-full" style="height:220px"></canvas>
+        </div>
+        <!-- 7. Top 10 课程 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">🏆 Top 10 课程</h3>
+            <canvas id="topCoursesChart" class="w-full" style="height:220px"></canvas>
+        </div>
+        <!-- 8. 支付方式分布 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <h3 class="text-sm font-medium text-gray-700 mb-2">💳 支付方式分布</h3>
+            <canvas id="paymentMethodsChart" class="w-full" style="height:220px"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script src="/static/js/analytics.js"></script>
+{% endblock %}

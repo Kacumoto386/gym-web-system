@@ -43,8 +43,18 @@ def _status_badge(days):
     return '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">有效</span>'
 
 
-def _build_summary_cards(total, expiring_soon, expired, birthday_today):
-    return f"""<div class="grid grid-cols-4 gap-4 mb-6">
+def _build_summary_cards(total, expiring_soon, expired, birthday_today, type_counts=None):
+    """
+    汇总统计
+    type_counts: {"会籍到期": N, "课程到期": N, ...}
+    """
+    type_breakdown = ""
+    if type_counts:
+        parts = [f'{t}<span class="font-mono">{c}</span>' for t, c in type_counts.items() if c > 0]
+        if parts:
+            type_breakdown = f'<div class="col-span-4 bg-white rounded-lg shadow-sm p-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">{" | ".join(parts)}</div>'
+
+    return f"""<div class="grid grid-cols-4 gap-4 mb-2">
     <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-gray-400">
         <div class="text-xs text-gray-500 uppercase tracking-wide">总提醒</div>
         <div class="text-2xl font-bold text-gray-800">{total}</div>
@@ -61,6 +71,7 @@ def _build_summary_cards(total, expiring_soon, expired, birthday_today):
         <div class="text-xs text-gray-500 uppercase tracking-wide">今日生日</div>
         <div class="text-2xl font-bold text-pink-600">{birthday_today}</div>
     </div>
+    {type_breakdown}
 </div>"""
 
 
@@ -225,6 +236,19 @@ SECTION_STYLES = {
 }
 
 
+RENEWAL_LINKS = {
+    "会籍到期": ("续费", "/membership-cards"),
+    "课程到期": ("续课", "/sales"),
+    "包月到期": ("续费", "/sales"),
+    "会员到期": ("续期", "/recharges"),
+}
+
+def _action_button(alert_type, member_id):
+    if alert_type in RENEWAL_LINKS:
+        text, url = RENEWAL_LINKS[alert_type]
+        return f'<a href="{url}?member_id={member_id}" class="inline-block px-2.5 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:bg-blue-50 transition-colors">{text}</a>'
+    return ""
+
 def _build_section(alert_type, rows):
     """构建非生日类型的分组区块（表格结构）"""
     bcolor, hbg, dot, _ = SECTION_STYLES.get(alert_type, ("border-gray-400", "bg-gray-50", "bg-gray-500", "gray"))
@@ -232,6 +256,7 @@ def _build_section(alert_type, rows):
     for r in rows:
         badge = _status_badge(r["remaining_days"])
         days_display = _days_tag(r["remaining_days"])
+        action = _action_button(alert_type, r["member_id"])
         trs += f"""<tr class="hover:bg-gray-50 border-b">
             <td class="px-4 py-3 font-medium text-gray-800">{r["member_name"]}</td>
             <td class="px-4 py-3 text-sm text-gray-500">{r["member_id"]}</td>
@@ -239,6 +264,7 @@ def _build_section(alert_type, rows):
             <td class="px-4 py-3 text-sm text-gray-500">{r["expire_date"]}</td>
             <td class="px-4 py-3 text-sm">{days_display}</td>
             <td class="px-4 py-3">{badge}</td>
+            <td class="px-4 py-3 text-sm">{action}</td>
         </tr>"""
     return f"""<div class="mb-6 border-l-4 {bcolor} bg-white rounded-lg shadow-sm overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 {hbg}">
@@ -257,6 +283,7 @@ def _build_section(alert_type, rows):
                 <th class="px-4 py-3">到期日期</th>
                 <th class="px-4 py-3">剩余天数</th>
                 <th class="px-4 py-3">状态</th>
+                <th class="px-4 py-3">操作</th>
             </tr>
         </thead>
         <tbody>{trs}</tbody>
@@ -272,12 +299,14 @@ def _build_birthday_section(rows):
             days_display = '<span class="text-pink-500 font-medium">🎂 今日生日</span>'
         else:
             days_display = _days_tag(r["remaining_days"])
+        action = f'<a href="/chat?member_id={r["member_id"]}" class="inline-block px-2.5 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:bg-blue-50 transition-colors">发消息</a>'
         trs += f"""<tr class="hover:bg-gray-50 border-b">
             <td class="px-4 py-3 font-medium text-gray-800">{r["member_name"]}</td>
             <td class="px-4 py-3 text-sm text-gray-500">{r["member_id"]}</td>
             <td class="px-4 py-3 text-sm text-gray-700">{r["item_name"]}</td>
             <td class="px-4 py-3 text-sm text-gray-500">{r["next_birthday"]}</td>
             <td class="px-4 py-3 text-sm">{days_display}</td>
+            <td class="px-4 py-3 text-sm">{action}</td>
         </tr>"""
     return f"""<div class="mb-6 border-l-4 border-pink-400 bg-white rounded-lg shadow-sm overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 bg-pink-50">
@@ -295,6 +324,7 @@ def _build_birthday_section(rows):
                 <th class="px-4 py-3">出生日期</th>
                 <th class="px-4 py-3">即将到来</th>
                 <th class="px-4 py-3">天数</th>
+                <th class="px-4 py-3">操作</th>
             </tr>
         </thead>
         <tbody>{trs}</tbody>
@@ -311,6 +341,7 @@ def alert_table(
     tab: str = Query("all", description="all/expiring/expired"),
     alert_type: str = Query("", description="筛选类型"),
     q: str = Query("", description="搜索会员姓名"),
+    renewable_only: str = Query("0", description="仅显示可续费"),
     db: Session = Depends(get_db),
 ):
     """实时查询所有到期数据，按类型分组渲染"""
@@ -334,13 +365,22 @@ def alert_table(
         ql = q.lower()
         all_data = [d for d in all_data if ql in d["member_name"].lower()]
 
+    if renewable_only == "1":
+        renewable_types = set(RENEWAL_LINKS.keys())
+        all_data = [d for d in all_data if d["type"] in renewable_types]
+
     # 汇总统计
     total = len(all_data)
     expiring_soon = sum(1 for d in all_data if d["remaining_days"] is not None and 0 <= d["remaining_days"] <= 7)
     expired = sum(1 for d in all_data if d["remaining_days"] is not None and d["remaining_days"] < 0)
     birthday_today = sum(1 for d in all_data if d["type"] == "生日提醒" and d["remaining_days"] == 0)
 
-    html = _build_summary_cards(total, expiring_soon, expired, birthday_today)
+    type_counts = {}
+    for d in all_data:
+        t = d["type"]
+        type_counts[t] = type_counts.get(t, 0) + 1
+
+    html = _build_summary_cards(total, expiring_soon, expired, birthday_today, type_counts)
 
     # 按类型分组
     type_order = ["会籍到期", "课程到期", "包月到期", "会员到期", "生日提醒"]

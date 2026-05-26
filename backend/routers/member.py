@@ -11,6 +11,9 @@ from datetime import date, datetime, timedelta
 
 from backend.database import get_db
 from backend.models.models import Member, MembershipCard, Checkin, ClassRecord, BodyMeasurement, Recharge, Sale, Staff, LessonPackage
+from backend.routers.operation_log import record_log
+from backend.utils.response import success
+from backend.utils.pagination import paginate_query, build_pagination_html
 from backend.services.id_gen import generate_id
 
 router = APIRouter(prefix="/api/members", tags=["会员管理"])
@@ -69,7 +72,7 @@ def _build_table(rows: list, sort_by: str = "created_at", sort_dir: str = "desc"
             </td>
         </tr>"""
 
-    return f"""<table class="w-full border rounded-lg overflow-hidden">
+    return f"""<div class="overflow-x-auto"><table class="w-full border rounded-lg overflow-hidden">
         <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
             <tr>
                 {_th('member_id', '编号', 'w-[7%]')}
@@ -89,52 +92,10 @@ def _build_table(rows: list, sort_by: str = "created_at", sort_dir: str = "desc"
         <tbody>
             {trs}
         </tbody>
-    </table>"""
+    </table></div>"""
 
 
-def _build_pagination(page: int, total: int, total_pages: int) -> str:
-    """生成分页控件 HTML"""
-    if total_pages <= 1:
-        return ""
-    pages_html = ""
-    if total_pages <= 10:
-        for p in range(1, total_pages + 1):
-            if p == page:
-                pages_html += f'<span class="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium">{p}</span>'
-            else:
-                pages_html += f'<button class="px-2 py-1 border rounded text-xs hover:bg-gray-100" onclick="goPage({p})">{p}</button>'
-    else:
-        # 当前页前后各 2 页 + 首尾 + 省略号
-        items = [1]
-        if page > 4:
-            items.append("...")
-        for p in range(max(2, page - 2), min(total_pages - 1, page + 2) + 1):
-            items.append(p)
-        if page < total_pages - 3:
-            items.append("...")
-        items.append(total_pages)
-
-        for p in items:
-            if p == "...":
-                pages_html += '<span class="px-1 py-1 text-xs text-gray-400">…</span>'
-            elif p == page:
-                pages_html += f'<span class="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium">{p}</span>'
-            else:
-                pages_html += f'<button class="px-2 py-1 border rounded text-xs hover:bg-gray-100" onclick="goPage({p})">{p}</button>'
-
-    prev_disabled = "opacity-50 cursor-not-allowed" if page <= 1 else "hover:bg-gray-100"
-    next_disabled = "opacity-50 cursor-not-allowed" if page >= total_pages else "hover:bg-gray-100"
-    prev_onclick = "" if page <= 1 else f'onclick="goPage({page-1})"'
-    next_onclick = "" if page >= total_pages else f'onclick="goPage({page+1})"'
-
-    return f"""<div class="flex items-center justify-between mt-3 pt-2 border-t">
-        <span class="text-xs text-gray-500">共 {total} 条记录</span>
-        <div class="flex items-center gap-1">
-            <button class="px-2 py-1 border rounded text-xs {prev_disabled}" {prev_onclick}>上一页</button>
-            {pages_html}
-            <button class="px-2 py-1 border rounded text-xs {next_disabled}" {next_onclick}>下一页</button>
-        </div>
-    </div>"""
+# _build_pagination 已迁移至 backend.utils.pagination.build_pagination_html
 
 
 @router.get("/table", response_class=HTMLResponse)
@@ -210,16 +171,10 @@ def member_table(
     else:
         query = query.order_by(sort_col.desc())
 
-    # 总数
-    total = query.count()
-
     # 分页
-    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
-    page = max(1, min(page, total_pages))
-    rows = query.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).all()
-
+    rows, total, total_pages = paginate_query(query, page, PAGE_SIZE)
     table_html = _build_table(rows, sort_by, sort_dir)
-    pagination_html = _build_pagination(page, total, total_pages)
+    pagination_html = build_pagination_html(page, total, total_pages)
     return f"{table_html}{pagination_html}"
 
 
@@ -641,6 +596,21 @@ def update_member(
         "staff_id": staff_id, "staff_name": staff_name,
         "store_id": store_id, "wristband_id": wristband_id,
     }
+
+    # 操作日志：在 setattr 之前捕获被修改的字段
+    changed = [k for k, v in update_data.items() if v is not None and v != "" and str(getattr(member, k, "")) != str(v)]
+    if changed:
+        token = request.cookies.get("access_token", "")
+        op = "系统"
+        if token:
+            from jose import jwt
+            from backend.routers.auth import SECRET_KEY, ALGORITHM
+            try:
+                op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+            except Exception:
+                pass
+        record_log(db, op, "update", "会员", member_id, f"更新会员：{', '.join(changed)}")
+
     for key, val in update_data.items():
         if val is not None and val != "":
             if key in ("height", "weight", "body_fat"):
@@ -818,6 +788,24 @@ def member_measurements_html(member_id: str, db: Session = Depends(get_db)):
     </table>"""
 
 
+@router.get("/{member_id}/body-trend")
+def member_body_trend(member_id: str, db: Session = Depends(get_db)):
+    """体测趋势 JSON 数据（Chart.js 用）"""
+    rows = db.query(BodyMeasurement).filter(
+        BodyMeasurement.member_id == member_id,
+        BodyMeasurement.weight.isnot(None),
+    ).order_by(BodyMeasurement.measure_date.asc()).limit(20).all()
+
+    return {
+        "labels": [r.measure_date.isoformat() if r.measure_date else "" for r in rows],
+        "datasets": [
+            {"label": "体重(kg)", "data": [float(r.weight) if r.weight else None for r in rows], "borderColor": "#3B82F6", "tension": 0.3},
+            {"label": "体脂率(%)", "data": [float(r.body_fat) if r.body_fat else None for r in rows], "borderColor": "#EF4444", "tension": 0.3},
+            {"label": "BMI", "data": [float(r.bmi) if r.bmi else None for r in rows], "borderColor": "#10B981", "tension": 0.3},
+        ],
+    }
+
+
 @router.get("/{member_id}/purchases-html", response_class=HTMLResponse)
 def member_purchases_html(member_id: str, db: Session = Depends(get_db)):
     """消费记录 HTML 片段（充值 + 售课）"""
@@ -860,7 +848,18 @@ def delete_member(member_id: str, request: Request, db: Session = Depends(get_db
     member = db.query(Member).filter(Member.member_id == member_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="会员不存在")
+    name = member.name
+    token = request.cookies.get("access_token", "")
+    op = "系统"
+    if token:
+        from jose import jwt
+        from backend.routers.auth import SECRET_KEY, ALGORITHM
+        try:
+            op = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("sub", "系统")
+        except Exception:
+            pass
+    record_log(db, op, "delete", "会员", member_id, f"删除会员：{name}({member_id})")
     db.delete(member)
     db.commit()
 
-    return {"success": True, "message": f"会员 {member_id} 已删除"}
+    return success(message=f"会员 {member_id} 已删除")
