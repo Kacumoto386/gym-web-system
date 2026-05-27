@@ -230,8 +230,10 @@ def peak_hours(year: int = 0, month: int = 0, db: Session = Depends(get_db)):
     m = month or TODAY.month
     start, end = _month_start_end(y, m)
 
+    from sqlalchemy import cast, Integer
+
     rows = db.query(
-        func.substr(Checkin.checkin_time, 1, 2).label("hour"),
+        cast(func.substr(Checkin.checkin_time, 1, 2), Integer).label("hour"),
         func.count(Checkin.id).label("cnt"),
     ).filter(
         Checkin.checkin_date >= start,
@@ -240,7 +242,7 @@ def peak_hours(year: int = 0, month: int = 0, db: Session = Depends(get_db)):
 
     hour_map = {r.hour: r.cnt for r in rows}
     labels = [f"{h:02d}:00" for h in range(6, 23)]  # 6:00 ~ 22:00
-    data = [hour_map.get(f"{h:02d}", 0) for h in range(6, 23)]
+    data = [hour_map.get(h, 0) for h in range(6, 23)]
 
     return {
         "labels": labels,

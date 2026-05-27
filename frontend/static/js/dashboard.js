@@ -51,7 +51,18 @@ function switchTrendTab(tab) {
 function renderRegisterChart(data) {
     if (registerChartInstance) registerChartInstance.destroy();
     var canvas = document.getElementById('registerTrendChart');
-    if (!canvas || !data.labels || data.labels.length === 0) return;
+    if (!canvas || !data.labels || data.labels.length === 0) {
+        if (canvas) {
+            var ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#9CA3AF';
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('暂无数据', canvas.width / 2, canvas.height / 2);
+        }
+        return;
+    }
 
     registerChartInstance = new Chart(canvas, {
         type: 'line',
@@ -71,7 +82,18 @@ function renderRegisterChart(data) {
 function renderRevenueChart(data) {
     if (revenueChartInstance) revenueChartInstance.destroy();
     var canvas = document.getElementById('revenueTrendChart');
-    if (!canvas || !data.labels || data.labels.length === 0) return;
+    if (!canvas || !data.labels || data.labels.length === 0) {
+        if (canvas) {
+            var ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#9CA3AF';
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('暂无数据', canvas.width / 2, canvas.height / 2);
+        }
+        return;
+    }
 
     revenueChartInstance = new Chart(canvas, {
         type: 'bar',

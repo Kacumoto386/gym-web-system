@@ -1,6 +1,6 @@
 ﻿"""
 FastAPI 应用入口
-V3.8.2 — 数据导入模块（模板下载 / Excel 上传 / 进度跟踪 / 历史记录）
+V3.8.9 — 看板图表修复 + HTMX 删除刷新 + 小程序预开发
 """
 import sys
 from pathlib import Path
@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, Request, Depends, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timedelta
@@ -22,8 +22,8 @@ from backend.feature_registry import registry
 
 app = FastAPI(
     title="鼠小弟健身管理系统",
-    description="Web 版健身管理系统 V3.8.8 — 功能配置清单 + Bug 修复",
-    version="3.8.8",
+    description="Web 版健身管理系统 V3.8.9 — 看板图表修复 + HTMX 删除刷新 + 小程序预开发",
+    version="3.8.9",
 )
 
 # 模板
@@ -67,7 +67,7 @@ PUBLIC_PATHS = {
 }
 
 # 公开 API 前缀（不需要登录）
-PUBLIC_API_PREFIXES = {"/api/dashboard/", "/api/members/search-json", "/api/mcp/", "/api/chat/"}
+PUBLIC_API_PREFIXES = {"/api/dashboard/", "/api/members/search-json", "/api/mcp/", "/api/chat/", "/api/miniapp/staff/", "/api/miniapp/member/"}
 
 
 @app.middleware("http")
@@ -116,6 +116,19 @@ async def no_cache_middleware(request: Request, call_next):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    return response
+
+
+# ── HTMX 删除自动刷新中间件 ──
+# DELETE 请求返回 JSON 时，自动添加 HX-Refresh: true 响应头
+# 使 HTMX 刷新页面，避免显示裸 JSON
+@app.middleware("http")
+async def hx_refresh_middleware(request: Request, call_next):
+    response = await call_next(request)
+    if request.method == "DELETE" and 200 <= response.status_code < 300:
+        ct = response.headers.get("content-type", "")
+        if "json" in ct:
+            response.headers["HX-Refresh"] = "true"
     return response
 
 
@@ -206,6 +219,10 @@ async def operation_log_middleware(request: Request, call_next):
 
 
 # ── 全局异常处理器 ──
+
+from backend.miniapp.common import MiniAppException, mini_app_exception_handler
+app.add_exception_handler(MiniAppException, mini_app_exception_handler)
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -610,11 +627,12 @@ async def favicon():
 def health_check(db: Session = Depends(get_db)):
     from backend.routers.operation_log import get_system_name
     name = get_system_name(db)
-    return {"status": "ok", "version": "3.8.8", "system_name": name}
+    return {"status": "ok", "version": "3.8.9", "system_name": name}
 
 
 # 路由注册（按功能开关条件注册）
 from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value, dashboard, import_data, finance_review, finance_budget, finance_profit, analytics
+from backend.miniapp.member.router import router as member_miniapp_router
 
 if registry.is_enabled("member"):           app.include_router(member.router)
 if registry.is_enabled("staff"):            app.include_router(staff.router)
@@ -646,3 +664,4 @@ if registry.is_enabled("finance_review"):   app.include_router(finance_review.ro
 if registry.is_enabled("finance_budget"):   app.include_router(finance_budget.router)
 if registry.is_enabled("finance_profit"):   app.include_router(finance_profit.router)
 if registry.is_enabled("analytics"):        app.include_router(analytics.router)
+if registry.is_enabled("miniapp_member"):   app.include_router(member_miniapp_router)

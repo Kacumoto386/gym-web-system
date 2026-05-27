@@ -32,6 +32,19 @@ function destroyAll() {
 function renderChart(canvasId, data, type) {
     var canvas = document.getElementById(canvasId);
     if (!canvas || !data || !data.labels) return;
+
+    // 无数据时显示空态
+    if (data.labels.length === 0) {
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#9CA3AF';
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('暂无数据', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
     var ctx = canvas.getContext('2d');
 
     var isHorizontal = type === 'horizontalBar';

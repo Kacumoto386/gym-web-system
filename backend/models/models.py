@@ -698,3 +698,48 @@ class Budget(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     created_at = Column(DateTime, default=datetime.now)
+
+
+# ═══════════════════════════════════════════
+# 11. 小程序
+# ═══════════════════════════════════════════
+
+class MemberWechatAccount(Base):
+    """会员微信账号映射表"""
+    __tablename__ = "member_wechat_account"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    member_id = Column(String(20), comment="会员ID")
+    openid = Column(String(100), unique=True, nullable=False, comment="微信 OpenID")
+    unionid = Column(String(100), default="", comment="微信 UnionID")
+    nickname = Column(String(100), default="", comment="微信昵称")
+    avatar_url = Column(String(500), default="", comment="头像 URL")
+    phone = Column(String(20), default="", comment="绑定手机号")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class StaffWechatAccount(Base):
+    """员工微信账号映射表"""
+    __tablename__ = "staff_wechat_account"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    staff_id = Column(String(20), comment="员工ID")
+    openid = Column(String(100), unique=True, nullable=False, comment="微信 OpenID")
+    unionid = Column(String(100), default="", comment="微信 UnionID")
+    nickname = Column(String(100), default="", comment="微信昵称")
+    avatar_url = Column(String(500), default="", comment="头像 URL")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class Package(Base):
+    """可售课程包（小程序商品）"""
+    __tablename__ = "package"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    package_id = Column(String(20), unique=True, nullable=False, comment="课程包编号")
+    name = Column(String(100), nullable=False, comment="课程包名称")
+    price = Column(DECIMAL(10, 2), default=0, comment="售价")
+    total_classes = Column(Integer, default=0, comment="总课时")
+    validity_days = Column(Integer, default=0, comment="有效期(天)")
+    remark = Column(Text, default="", comment="描述")
+    status = Column(String(10), default="上架", comment="状态")
+    created_at = Column(DateTime, default=datetime.now)

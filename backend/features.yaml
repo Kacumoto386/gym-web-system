@@ -40,3 +40,7 @@ log: true               # 操作日志
 export_data: true       # 数据导出
 import_data: true       # 数据导入
 chat: true              # AI 助手
+
+# ── 小程序 ──
+miniapp_staff: true     # 员工小程序
+miniapp_member: true    # 会员小程序

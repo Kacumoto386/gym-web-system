@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.database import get_db
-from backend.models.models import Member, Checkin, ClassRecord, Sale, Staff, MembershipCard, LessonPackage
+from backend.models.models import Member, Checkin, ClassRecord, Sale, Staff, MembershipCard, LessonPackage, FinanceIncome
 
 router = APIRouter(prefix="/api/dashboard", tags=["仪表盘"])
 
@@ -367,7 +367,7 @@ def registration_trend(db: Session = Depends(get_db)):
     for i in range(30):
         d = start + timedelta(days=i)
         labels.append(d.strftime("%m/%d"))
-        data.append(reg_map.get(d, 0))
+        data.append(reg_map.get(d.isoformat(), 0))
 
     return {"labels": labels, "datasets": [{"label": "新增注册", "data": data, "borderColor": "#8B5CF6", "fill": True, "backgroundColor": "rgba(139,92,246,0.1)"}]}
 
@@ -394,10 +394,15 @@ def monthly_revenue(db: Session = Depends(get_db)):
         else:
             month_end = date(y, m + 1, 1) - timedelta(days=1)
 
-        total = db.query(func.sum(Sale.actual_amount)).filter(
-            Sale.sale_date >= month_start,
-            Sale.sale_date <= month_end,
-        ).scalar() or 0
+        total = 0
+        for model, field, date_col in [
+            (Sale, Sale.actual_amount, Sale.sale_date),
+            (FinanceIncome, FinanceIncome.amount, FinanceIncome.income_date),
+        ]:
+            amt = db.query(func.coalesce(func.sum(field), 0)).filter(
+                date_col >= month_start, date_col <= month_end
+            ).scalar() or 0
+            total += float(amt)
 
         labels.append(f"{y}-{m:02d}")
         revenue_data.append(float(total))
