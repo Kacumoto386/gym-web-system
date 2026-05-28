@@ -1,0 +1,19 @@
+.tab-bar { display: flex; background: #fff; margin: 20rpx; border-radius: 16rpx; overflow: hidden; }
+.tab-item { flex: 1; text-align: center; padding: 24rpx; font-size: 28rpx; color: var(--text-secondary); font-weight: 500; }
+.tab-item.active { color: var(--brand-primary); background: #ebf4ff; font-weight: 600; }
+.tab-item.order-link { color: var(--brand-secondary); }
+
+.product-item { border: 3rpx solid transparent; }
+.product-item.selected { border-color: var(--brand-primary); background: #f7faff; }
+.product-header { display: flex; justify-content: space-between; align-items: center; }
+.product-name { font-size: 30rpx; font-weight: 600; }
+.product-type { font-size: 22rpx; color: var(--brand-secondary); background: #ebf4ff; padding: 4rpx 14rpx; border-radius: 8rpx; }
+.product-body { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16rpx; }
+.product-price { font-size: 44rpx; font-weight: 700; color: var(--danger); }
+.product-meta { font-size: 24rpx; color: var(--text-secondary); }
+.product-desc { display: block; font-size: 24rpx; color: var(--text-secondary); margin-top: 10rpx; border-top: 2rpx solid var(--border-color); padding-top: 10rpx; }
+
+.buy-section { margin-top: 10rpx; }
+.buy-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; }
+.total-amount { font-size: 40rpx; font-weight: 700; color: var(--danger); }
+.buy-actions { margin-top: 20rpx; }

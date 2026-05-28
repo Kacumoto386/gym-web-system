@@ -1,0 +1,7 @@
+.balance-card { display: flex; flex-direction: column; align-items: center; }
+.balance-label { font-size: 26rpx; color: var(--text-secondary); }
+.balance-value { font-size: 72rpx; font-weight: 700; color: var(--danger); margin-top: 10rpx; }
+.recharge-row { display: flex; justify-content: space-between; padding: 14rpx 0; border-bottom: 2rpx solid var(--border-color); }
+.recharge-amount { font-weight: 600; color: var(--success); }
+.recharge-time { font-size: 24rpx; color: var(--text-secondary); }
+.empty-text { text-align: center; color: var(--text-secondary); padding: 30rpx; }

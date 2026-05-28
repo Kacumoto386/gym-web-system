@@ -1,0 +1,54 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/login/login",
+    "pages/card/card",
+    "pages/card/detail",
+    "pages/balance/balance",
+    "pages/checkin/checkin",
+    "pages/booking/booking",
+    "pages/class-record/class-record",
+    "pages/body/body",
+    "pages/alert/alert",
+    "pages/purchase/purchase",
+    "pages/purchase/order"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#2b6cb0",
+    "navigationBarTitleText": "会员中心",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f7fa"
+  },
+  "tabBar": {
+    "color": "#999",
+    "selectedColor": "#2b6cb0",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "assets/home.png",
+        "selectedIconPath": "assets/home-active.png"
+      },
+      {
+        "pagePath": "pages/card/card",
+        "text": "会籍卡",
+        "iconPath": "assets/card.png",
+        "selectedIconPath": "assets/card-active.png"
+      },
+      {
+        "pagePath": "pages/booking/booking",
+        "text": "预约",
+        "iconPath": "assets/booking.png",
+        "selectedIconPath": "assets/booking-active.png"
+      },
+      {
+        "pagePath": "pages/home/home",
+        "text": "我的",
+        "iconPath": "assets/me.png",
+        "selectedIconPath": "assets/me-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

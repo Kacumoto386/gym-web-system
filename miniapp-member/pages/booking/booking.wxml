@@ -1,0 +1,31 @@
+<view class="page">
+  <button class="btn-primary" bindtap="toggleForm" style="margin:20rpx">
+    {{showForm ? '收起' : '+ 预约课程'}}
+  </button>
+
+  <!-- 预约表单 -->
+  <view class="card" wx:if="{{showForm}}">
+    <text class="section-title">选择教练</text>
+    <view wx:for="{{coaches}}" wx:key="staff_id">
+      <view class="coach-option {{selectedCoach?.staff_id === item.staff_id ? 'active' : ''}}" bindtap="selectCoach" data-index="{{index}}">{{item.name}}</view>
+    </view>
+    <view class="form-group"><text class="label">日期</text><input class="input-field" value="{{bookingDate}}" bindinput="onInput" data-field="bookingDate" /></view>
+    <view class="time-row">
+      <view class="form-group" style="flex:1"><text class="label">开始</text><input class="input-field" value="{{startTime}}" bindinput="onInput" data-field="startTime" /></view>
+      <view class="form-group" style="flex:1"><text class="label">结束</text><input class="input-field" value="{{endTime}}" bindinput="onInput" data-field="endTime" /></view>
+    </view>
+    <button class="btn-primary" bindtap="onCreateBooking" loading="{{submitting}}" disabled="{{submitting}}">确认预约</button>
+  </view>
+
+  <!-- 预约列表 -->
+  <view class="card" wx:for="{{bookings}}" wx:key="booking_id">
+    <view class="booking-header">
+      <text class="booking-coach">{{item.coach_name}}</text>
+      <text class="booking-status {{item.status}}">{{item.status === 'confirmed' ? '已确认' : item.status === 'cancelled' ? '已取消' : item.status}}</text>
+    </view>
+    <text class="booking-time">{{item.booking_date}} {{item.start_time}}-{{item.end_time}}</text>
+    <button wx:if="{{item.status === 'confirmed'}}" class="cancel-btn" bindtap="onCancel" data-id="{{item.booking_id}}">取消预约</button>
+  </view>
+
+  <view wx:if="{{bookings.length === 0 && !showForm}}" class="empty">暂无预约</view>
+</view>

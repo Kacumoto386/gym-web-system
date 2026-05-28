@@ -1,0 +1,22 @@
+<view class="page login-page">
+  <view class="logo-area">
+    <text class="logo-text">🏋️</text>
+    <text class="title">员工助手</text>
+    <text class="subtitle">健身房移动管理系统</text>
+  </view>
+
+  <view class="card">
+    <view class="form-group">
+      <text class="label">账号</text>
+      <input class="input-field" placeholder="请输入账号" value="{{username}}" bindinput="onInputUsername" />
+    </view>
+    <view class="form-group">
+      <text class="label">密码</text>
+      <input class="input-field" type="password" placeholder="请输入密码" value="{{password}}" bindinput="onInputPassword" />
+    </view>
+
+    <button class="btn-primary" bindtap="onLogin" loading="{{loading}}" disabled="{{loading}}">
+      {{loading ? '登录中...' : '登 录'}}
+    </button>
+  </view>
+</view>

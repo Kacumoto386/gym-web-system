@@ -1,0 +1,37 @@
+<view class="page">
+  <view class="card">
+    <text class="section-title">新建预约</text>
+
+    <view class="form-group">
+      <text class="label">会员ID</text>
+      <input class="input-field" value="{{memberId}}" disabled />
+    </view>
+
+    <view class="form-group">
+      <text class="label">选择教练</text>
+      <view wx:for="{{coaches}}" wx:key="staff_id">
+        <view class="coach-item {{selectedCoach.staff_id === item.staff_id ? 'active' : ''}}" bindtap="selectCoach" data-index="{{index}}">
+          <text>{{item.name}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="form-group">
+      <text class="label">预约日期</text>
+      <input class="input-field" type="text" value="{{bookingDate}}" bindinput="onInput" data-field="bookingDate" />
+    </view>
+
+    <view class="time-row">
+      <view class="form-group" style="flex:1">
+        <text class="label">开始</text>
+        <input class="input-field" value="{{startTime}}" bindinput="onInput" data-field="startTime" />
+      </view>
+      <view class="form-group" style="flex:1">
+        <text class="label">结束</text>
+        <input class="input-field" value="{{endTime}}" bindinput="onInput" data-field="endTime" />
+      </view>
+    </view>
+
+    <button class="btn-primary" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">确认预约</button>
+  </view>
+</view>

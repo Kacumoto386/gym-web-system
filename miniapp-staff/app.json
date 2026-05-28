@@ -1,0 +1,53 @@
+{
+  "pages": [
+    "pages/home/home",
+    "pages/login/login",
+    "pages/member/member",
+    "pages/member/detail",
+    "pages/card-sale/card-sale",
+    "pages/course-sale/course-sale",
+    "pages/booking/booking",
+    "pages/booking/create",
+    "pages/checkin/checkin",
+    "pages/class-record/class-record",
+    "pages/performance/performance"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#1a365d",
+    "navigationBarTitleText": "员工助手",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f7fa"
+  },
+  "tabBar": {
+    "color": "#999",
+    "selectedColor": "#1a365d",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "assets/home.png",
+        "selectedIconPath": "assets/home-active.png"
+      },
+      {
+        "pagePath": "pages/checkin/checkin",
+        "text": "核销",
+        "iconPath": "assets/checkin.png",
+        "selectedIconPath": "assets/checkin-active.png"
+      },
+      {
+        "pagePath": "pages/member/member",
+        "text": "会员",
+        "iconPath": "assets/member.png",
+        "selectedIconPath": "assets/member-active.png"
+      },
+      {
+        "pagePath": "pages/performance/performance",
+        "text": "业绩",
+        "iconPath": "assets/performance.png",
+        "selectedIconPath": "assets/performance-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

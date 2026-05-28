@@ -1,0 +1,42 @@
+<view class="page">
+  <!-- 会员查询 -->
+  <view class="card">
+    <view class="search-bar">
+      <input class="search-input" placeholder="输入会员ID" value="{{memberId}}" bindinput="onInputMemberId" />
+      <button class="search-btn" bindtap="onSearchMember">查询</button>
+    </view>
+  </view>
+
+  <!-- 会员信息 -->
+  <view class="card" wx:if="{{memberInfo}}">
+    <text class="section-title">{{memberInfo.name}} · {{memberInfo.phone}}</text>
+    <text class="info-row">剩余课时: {{memberInfo.remaining_lessons}}次</text>
+
+    <view class="form-group" style="margin-top:20rpx">
+      <text class="label">消费方式</text>
+      <picker range="{{consumeTypes}}" bindchange="onConsumeTypeChange">
+        <view class="input-field">{{consumeType}}</view>
+      </picker>
+    </view>
+
+    <view wx:if="{{cards.length}}" style="margin-top:20rpx">
+      <text class="label">选择卡</text>
+      <view wx:for="{{cards}}" wx:key="card_id">
+        <view class="card-select {{selectedCard.card_id === item.card_id ? 'active' : ''}}" bindtap="selectCard" data-index="{{index}}">
+          {{item.product_name}} · 剩余{{item.remaining_classes}}次
+        </view>
+      </view>
+    </view>
+
+    <button class="btn-primary" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">确认核销</button>
+  </view>
+
+  <!-- 最近核销 -->
+  <view class="card" wx:if="{{recentRecords.length}}">
+    <text class="section-title">最近核销</text>
+    <view wx:for="{{recentRecords}}" wx:key="checkin_id" class="record-line">
+      <text>{{item.member_name}}</text>
+      <text class="text-secondary">{{item.consume_note}}</text>
+    </view>
+  </view>
+</view>

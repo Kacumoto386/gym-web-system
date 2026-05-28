@@ -1,0 +1,49 @@
+<view class="page">
+  <!-- 搜索 -->
+  <view class="card search-card">
+    <view class="search-bar">
+      <input class="search-input" placeholder="搜索姓名/手机号" value="{{keyword}}" bindinput="onSearchInput" />
+      <button class="search-btn" bindtap="onSearch">搜索</button>
+    </view>
+  </view>
+
+  <!-- 新增会员按钮 -->
+  <button class="btn-primary" bindtap="toggleCreateForm" style="margin:0 20rpx">
+    {{showCreateForm ? '收起' : '+ 新增会员'}}
+  </button>
+
+  <!-- 新增会员表单 -->
+  <view class="card" wx:if="{{showCreateForm}}">
+    <text class="section-title">新增会员</text>
+    <view class="form-group">
+      <text class="label">姓名 *</text>
+      <input class="input-field" placeholder="请输入姓名" value="{{form.name}}" bindinput="onFormInput" data-field="name" />
+    </view>
+    <view class="form-group">
+      <text class="label">手机号 *</text>
+      <input class="input-field" placeholder="请输入手机号" value="{{form.phone}}" bindinput="onFormInput" data-field="phone" />
+    </view>
+    <view class="form-group">
+      <text class="label">性别</text>
+      <picker range="{{['男','女']}}" value="{{form.gender === '女' ? 1 : 0}}" bindchange="onFormInput" data-field="gender">
+        <view class="input-field">{{form.gender}}</view>
+      </picker>
+    </view>
+    <button class="btn-primary" bindtap="onCreateMember" loading="{{submitting}}" disabled="{{submitting}}">
+      {{submitting ? '提交中...' : '确认创建'}}
+    </button>
+  </view>
+
+  <!-- 搜索结果 -->
+  <view wx:for="{{members}}" wx:key="member_id">
+    <view class="card member-item" bindtap="onViewMember" data-id="{{item.member_id}}">
+      <text class="member-name">{{item.name}}</text>
+      <text class="member-phone">{{item.phone}}</text>
+      <text class="member-lessons">剩余 {{item.remaining_lessons}} 次</text>
+    </view>
+  </view>
+
+  <view wx:if="{{members.length === 0 && keyword}}" class="empty">
+    未找到匹配的会员
+  </view>
+</view>

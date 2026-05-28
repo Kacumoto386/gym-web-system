@@ -105,6 +105,7 @@ class Member(Base):
     photo_path = Column(String(200), default="", comment="照片路径")
     staff_id = Column(String(20), default="", comment="跟进员工编号")
     staff_name = Column(String(50), default="", comment="跟进员工姓名")
+    password_hash = Column(String(200), default="", comment="密码哈希")
 
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
@@ -135,6 +136,7 @@ class MembershipCard(Base):
     staff_id = Column(String(20), default="", comment="销售员工编号")
     staff_name = Column(String(50), default="", comment="销售员姓名")
     card_name = Column(String(100), default="", comment="卡名称/套餐名称")
+    remaining_classes = Column(Integer, default=0, comment="剩余课时")
     voided = Column(Integer, default=0, comment="作废标志(0=正常,1=作废)")
     void_reason = Column(Text, default="", comment="作废原因")
     void_time = Column(DateTime, nullable=True, comment="作废时间")

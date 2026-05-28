@@ -1,0 +1,17 @@
+{
+  "description": "会员小程序 - 健身房会员自助服务",
+  "packOptions": { "ignore": [], "include": [] },
+  "setting": {
+    "bundle": false, "urlCheck": true, "es6": true, "postcss": true,
+    "compileHotReLoad": false, "minified": true, "enhance": true,
+    "useMultiFrameRuntime": true, "useApiHook": true, "useApiHostProcess": true,
+    "showShadowRootInWxmlPanel": true, "minifyWXSS": true, "minifyWXML": true,
+    "babelSetting": { "ignore": [], "disablePlugins": [], "outputPath": "" }
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.7.0",
+  "appid": "wx_member_appid_placeholder",
+  "projectname": "会员小程序",
+  "condition": {},
+  "editorSetting": { "tabIndent": "insertSpaces", "tabSize": 2 }
+}

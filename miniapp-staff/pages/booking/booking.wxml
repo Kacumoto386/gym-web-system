@@ -1,0 +1,12 @@
+<view class="page">
+  <button class="btn-primary" bindtap="onCreateBooking" style="margin:20rpx">+ 新建预约</button>
+
+  <view class="card" wx:for="{{bookings}}" wx:key="index">
+    <view class="booking-row">
+      <text class="booking-member">{{item.member_name}}</text>
+      <text class="booking-time">{{item.start_time}}-{{item.end_time}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{bookings.length === 0}}" class="empty">暂无预约</view>
+</view>

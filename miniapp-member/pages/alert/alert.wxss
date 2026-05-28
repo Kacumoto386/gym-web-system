@@ -1,0 +1,6 @@
+.alert-card { border-left: 8rpx solid var(--warning); }
+.alert-header { display: flex; justify-content: space-between; }
+.alert-name { font-weight: 600; }
+.alert-days { font-size: 28rpx; color: var(--warning); }
+.alert-days.urgent { color: var(--danger); font-weight: 700; }
+.alert-info { display: block; font-size: 24rpx; color: var(--text-secondary); margin-top: 10rpx; }

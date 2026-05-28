@@ -1,0 +1,10 @@
+.coach-option { padding: 20rpx; border: 2rpx solid var(--border-color); border-radius: 10rpx; margin-bottom: 12rpx; text-align: center; font-size: 28rpx; }
+.coach-option.active { border-color: var(--brand-primary); background: #ebf4ff; }
+.time-row { display: flex; gap: 20rpx; }
+.booking-header { display: flex; justify-content: space-between; }
+.booking-coach { font-weight: 500; font-size: 28rpx; }
+.booking-status { font-size: 24rpx; padding: 4rpx 12rpx; border-radius: 6rpx; }
+.booking-status.confirmed { color: var(--success); }
+.booking-status.cancelled { color: var(--danger); }
+.booking-time { display: block; font-size: 26rpx; color: var(--text-secondary); margin: 10rpx 0; }
+.cancel-btn { margin-top: 10rpx; background: none; border: 2rpx solid var(--danger); color: var(--danger); border-radius: 8rpx; padding: 10rpx 24rpx; font-size: 24rpx; }

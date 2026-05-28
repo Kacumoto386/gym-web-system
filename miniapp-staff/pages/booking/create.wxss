@@ -1,0 +1,16 @@
+.coach-item {
+  padding: 20rpx;
+  border: 2rpx solid var(--border-color);
+  border-radius: 10rpx;
+  margin-bottom: 12rpx;
+  text-align: center;
+  font-size: 28rpx;
+}
+.coach-item.active {
+  border-color: var(--brand-primary);
+  background: #ebf4ff;
+}
+.time-row {
+  display: flex;
+  gap: 20rpx;
+}

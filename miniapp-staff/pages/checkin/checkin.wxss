@@ -1,0 +1,19 @@
+.card-select {
+  padding: 16rpx 20rpx;
+  border: 2rpx solid var(--border-color);
+  border-radius: 10rpx;
+  margin-bottom: 10rpx;
+  font-size: 26rpx;
+}
+.card-select.active {
+  border-color: var(--brand-primary);
+  background: #ebf4ff;
+}
+.record-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  font-size: 26rpx;
+  border-bottom: 2rpx solid var(--border-color);
+}
+.text-secondary { color: var(--text-secondary); }

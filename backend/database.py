@@ -2,7 +2,7 @@
 数据库配置
 """
 from pathlib import Path
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from backend.core.config import settings
 
@@ -34,3 +34,19 @@ def get_db():
 def init_db():
     """创建所有表（Alembic 管理后续迁移）"""
     Base.metadata.create_all(bind=engine)
+
+    # V3.8.9 会员密码哈希字段
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE member ADD COLUMN password_hash VARCHAR(200) DEFAULT ''"))
+            conn.commit()
+    except Exception:
+        pass  # 字段已存在
+
+    # V3.9.1 会员卡剩余课时
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE membership_card ADD COLUMN remaining_classes INTEGER DEFAULT 0"))
+            conn.commit()
+    except Exception:
+        pass  # 字段已存在

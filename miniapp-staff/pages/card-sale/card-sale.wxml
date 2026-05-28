@@ -1,0 +1,35 @@
+<view class="page">
+  <!-- 选择卡种 -->
+  <view class="card">
+    <text class="section-title">选择卡种</text>
+    <view wx:for="{{products}}" wx:key="id">
+      <view class="product-item {{selectedProduct.id === item.id ? 'active' : ''}}" bindtap="selectProduct" data-index="{{index}}">
+        <text class="product-name">{{item.name}} ({{item.category}})</text>
+        <text class="product-price">¥{{item.price}}</text>
+        <text wx:if="{{item.total_classes}}" class="product-info">{{item.total_classes}}次 + 赠{{item.bonus_classes}}次</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 售卡信息 -->
+  <view class="card" wx:if="{{selectedProduct}}">
+    <text class="section-title">售卡信息</text>
+    <view class="form-group">
+      <text class="label">金额</text>
+      <input class="input-field" type="number" value="{{form.amount}}" bindinput="onInput" data-field="amount" />
+    </view>
+    <view class="form-group">
+      <text class="label">实收金额</text>
+      <input class="input-field" type="number" value="{{form.paid_amount}}" bindinput="onInput" data-field="paid_amount" />
+    </view>
+    <view class="form-group">
+      <text class="label">有效期（天）</text>
+      <input class="input-field" type="number" value="{{form.validity_days}}" bindinput="onInput" data-field="validity_days" />
+    </view>
+    <view class="form-group">
+      <text class="label">备注</text>
+      <input class="input-field" placeholder="选填" value="{{form.remark}}" bindinput="onInput" data-field="remark" />
+    </view>
+    <button class="btn-primary" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">确认开卡</button>
+  </view>
+</view>

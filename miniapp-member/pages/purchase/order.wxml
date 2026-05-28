@@ -1,0 +1,24 @@
+<view class="page">
+  <!-- 状态筛选 -->
+  <view class="filter-bar">
+    <view class="filter-item {{!statusFilter ? 'active' : ''}}" bindtap="filterOrders" data-status="">全部</view>
+    <view class="filter-item {{statusFilter === 'pending' ? 'active' : ''}}" bindtap="filterOrders" data-status="pending">待支付</view>
+    <view class="filter-item {{statusFilter === 'completed' ? 'active' : ''}}" bindtap="filterOrders" data-status="completed">已完成</view>
+    <view class="filter-item {{statusFilter === 'cancelled' ? 'active' : ''}}" bindtap="filterOrders" data-status="cancelled">已取消</view>
+  </view>
+
+  <!-- 订单列表 -->
+  <view wx:for="{{orders}}" wx:key="order_id" class="card order-card">
+    <view class="order-header">
+      <text class="order-type">{{getProductTypeText(item.product_type)}}</text>
+      <text class="order-status {{item.status}}">{{getStatusText(item.status)}}</text>
+    </view>
+    <text class="order-name">{{item.product_name}}</text>
+    <view class="order-footer">
+      <text class="order-amount">¥{{item.amount.toFixed(2)}}</text>
+      <text class="order-time">{{item.created_at}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{orders.length === 0}}" class="empty">暂无订单</view>
+</view>

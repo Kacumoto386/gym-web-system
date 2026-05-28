@@ -1,0 +1,18 @@
+<view class="page">
+  <view wx:for="{{cards}}" wx:key="card_id" class="card card-item" bindtap="onViewDetail" data-id="{{item.card_id}}">
+    <view class="card-header">
+      <text class="card-name">{{item.product_name}}</text>
+      <text class="card-type">{{item.card_type}}</text>
+    </view>
+    <view class="card-body">
+      <text class="remain-count">{{item.remaining_classes}}</text>
+      <text class="remain-label">剩余次数</text>
+    </view>
+    <view class="card-footer">
+      <text wx:if="{{item.end_date}}" class="card-date">到期: {{item.end_date}}</text>
+      <text class="card-status {{item.status}}">{{item.status === 'active' ? '使用中' : item.status}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{cards.length === 0}}" class="empty">暂无会籍卡</view>
+</view>

@@ -1,0 +1,38 @@
+<view class="page" wx:if="{{member}}">
+  <!-- 基本信息 -->
+  <view class="card">
+    <text class="section-title">{{member.name}} · {{member.gender}}</text>
+    <view class="info-row">
+      <text class="info-label">手机号</text>
+      <text class="info-value">{{member.phone}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">身高/体重/体脂</text>
+      <text class="info-value">{{member.height||'-'}} / {{member.weight||'-'}} / {{member.body_fat||'-'}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">剩余课时</text>
+      <text class="info-value highlight">{{member.remaining_lessons}} 次</text>
+    </view>
+  </view>
+
+  <!-- 快捷操作 -->
+  <view class="card">
+    <text class="section-title">快速操作</text>
+    <view class="action-row">
+      <button class="action-btn" bindtap="onSellCard">💳 售卡</button>
+      <button class="action-btn" bindtap="onCourseSale">📚 购课</button>
+      <button class="action-btn" bindtap="onBooking">📅 预约</button>
+      <button class="action-btn" bindtap="onCheckin">📷 核销</button>
+    </view>
+  </view>
+
+  <!-- 会籍卡列表 -->
+  <view class="card" wx:if="{{cards.length}}">
+    <text class="section-title">会籍卡 ({{cards.length}})</text>
+    <view wx:for="{{cards}}" wx:key="card_id" class="card-item">
+      <text class="card-name">{{item.product_name}}</text>
+      <text class="card-info">{{item.card_type}} · 剩余{{item.remaining_classes}}次 · {{item.status}}</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,11 @@
+<view class="page">
+  <view wx:if="{{alerts.length === 0}}" class="card"><text>暂无到期提醒 🎉</text></view>
+
+  <view wx:for="{{alerts}}" wx:key="card_id" class="card alert-card">
+    <view class="alert-header">
+      <text class="alert-name">{{item.product_name}}</text>
+      <text class="alert-days {{item.days_left <= 7 ? 'urgent' : ''}}">{{item.days_left}}天后到期</text>
+    </view>
+    <text class="alert-info">剩余 {{item.remaining_classes}} 次 · 到期 {{item.end_date}}</text>
+  </view>
+</view>

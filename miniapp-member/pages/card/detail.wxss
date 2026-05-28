@@ -1,0 +1,3 @@
+.info-row { display: flex; justify-content: space-between; padding: 16rpx 0; border-bottom: 2rpx solid var(--border-color); font-size: 28rpx; }
+.highlight { color: var(--brand-secondary); font-weight: 700; }
+.history-line { display: flex; justify-content: space-between; padding: 12rpx 0; font-size: 24rpx; color: var(--text-secondary); border-bottom: 2rpx solid var(--border-color); }

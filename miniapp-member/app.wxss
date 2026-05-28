@@ -1,0 +1,58 @@
+/**app.wxss**/
+page {
+  --brand-primary: #2b6cb0;
+  --brand-secondary: #3182ce;
+  --brand-bg: #f5f7fa;
+  --text-primary: #1a202c;
+  --text-secondary: #718096;
+  --border-color: #e2e8f0;
+  --success: #38a169;
+  --warning: #d69e2e;
+  --danger: #e53e3e;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  background-color: var(--brand-bg);
+  color: var(--text-primary);
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+}
+
+.btn-primary {
+  background: var(--brand-primary);
+  color: #fff;
+  border-radius: 12rpx;
+  padding: 24rpx 48rpx;
+  font-size: 30rpx;
+  text-align: center;
+}
+.btn-primary:active { opacity: 0.85; }
+
+.input-field {
+  border: 2rpx solid var(--border-color);
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.label {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  margin-bottom: 12rpx;
+  display: block;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 20rpx;
+}

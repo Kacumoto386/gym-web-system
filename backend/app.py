@@ -633,6 +633,7 @@ def health_check(db: Session = Depends(get_db)):
 # 路由注册（按功能开关条件注册）
 from backend.routers import member, staff, course, sale, class_record, checkin, body_measurement, recharge, alert, membership_card, product, finance, auth, operation_log, export_data, performance, commission, schedule, booking, package, asset_value, dashboard, import_data, finance_review, finance_budget, finance_profit, analytics
 from backend.miniapp.member.router import router as member_miniapp_router
+from backend.miniapp.staff.router import router as staff_miniapp_router
 
 if registry.is_enabled("member"):           app.include_router(member.router)
 if registry.is_enabled("staff"):            app.include_router(staff.router)
@@ -665,3 +666,4 @@ if registry.is_enabled("finance_budget"):   app.include_router(finance_budget.ro
 if registry.is_enabled("finance_profit"):   app.include_router(finance_profit.router)
 if registry.is_enabled("analytics"):        app.include_router(analytics.router)
 if registry.is_enabled("miniapp_member"):   app.include_router(member_miniapp_router)
+if registry.is_enabled("miniapp_staff"):    app.include_router(staff_miniapp_router)

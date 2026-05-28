@@ -1,0 +1,69 @@
+<view class="page" wx:if="{{member}}">
+  <!-- 会员信息 -->
+  <view class="card profile-card">
+    <text class="member-name">{{member.name}}</text>
+    <text class="member-phone">{{member.phone}}</text>
+  </view>
+
+  <!-- 统计卡片 -->
+  <view class="card stats-row">
+    <view class="stat-item">
+      <text class="stat-value">{{cardCount}}</text>
+      <text class="stat-label">会籍卡</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value highlight">{{totalRemaining}}</text>
+      <text class="stat-label">剩余课时</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{monthlyCheckins}}</text>
+      <text class="stat-label">本月签到</text>
+    </view>
+  </view>
+
+  <!-- 快捷入口 -->
+  <view class="card">
+    <text class="section-title">快捷入口</text>
+    <view class="grid">
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/card/card">
+        <text class="grid-icon">💳</text>
+        <text class="grid-label">会籍卡</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/balance/balance">
+        <text class="grid-icon">💰</text>
+        <text class="grid-label">储值</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/booking/booking">
+        <text class="grid-icon">📅</text>
+        <text class="grid-label">预约</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/checkin/checkin">
+        <text class="grid-icon">✅</text>
+        <text class="grid-label">签到</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/class-record/class-record">
+        <text class="grid-icon">📝</text>
+        <text class="grid-label">上课</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/body/body">
+        <text class="grid-icon">📏</text>
+        <text class="grid-label">体测</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/purchase/purchase">
+        <text class="grid-icon">🛒</text>
+        <text class="grid-label">购买</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 到期提醒 -->
+  <view class="card" wx:if="{{alerts.length > 0}}">
+    <text class="section-title">⚠️ 到期提醒</text>
+    <view wx:for="{{alerts}}" wx:key="card_id" class="alert-item">
+      <text>{{item.product_name}} · 还剩{{item.days_left}}天</text>
+    </view>
+  </view>
+
+  <!-- 版本号 -->
+  <view class="version-bar">会员小程序 v{{version}}</view>
+</view>

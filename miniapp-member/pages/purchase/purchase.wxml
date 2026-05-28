@@ -1,0 +1,62 @@
+<view class="page">
+  <!-- Tab 切换 -->
+  <view class="tab-bar">
+    <view class="tab-item {{tab === 'card' ? 'active' : ''}}" bindtap="switchTab" data-tab="card">购卡</view>
+    <view class="tab-item {{tab === 'package' ? 'active' : ''}}" bindtap="switchTab" data-tab="package">购课</view>
+    <view class="tab-item order-link" bindtap="onViewOrders">订单</view>
+  </view>
+
+  <!-- 购卡列表 -->
+  <view wx:if="{{tab === 'card'}}">
+    <view wx:for="{{cardProducts}}" wx:key="id" class="card product-item {{selectedProduct?.id === item.id ? 'selected' : ''}}" bindtap="selectProduct" data-index="{{index}}">
+      <view class="product-header">
+        <text class="product-name">{{item.name}}</text>
+        <text class="product-type">{{item.category}}</text>
+      </view>
+      <view class="product-body">
+        <text class="product-price">¥{{item.price}}</text>
+        <text class="product-meta" wx:if="{{item.total_classes}}">{{item.total_classes}}次 + 赠{{item.bonus_classes}}次</text>
+      </view>
+      <text class="product-desc" wx:if="{{item.description}}">{{item.description}}</text>
+    </view>
+
+    <view wx:if="{{cardProducts.length === 0}}" class="empty">暂无在售卡种</view>
+  </view>
+
+  <!-- 购课列表 -->
+  <view wx:if="{{tab === 'package'}}">
+    <view wx:for="{{packages}}" wx:key="package_id" class="card product-item {{selectedPkg?.package_id === item.package_id ? 'selected' : ''}}" bindtap="selectPkg" data-index="{{index}}">
+      <view class="product-header">
+        <text class="product-name">{{item.name}}</text>
+      </view>
+      <view class="product-body">
+        <text class="product-price">¥{{item.price}}</text>
+        <text class="product-meta" wx:if="{{item.total_classes}}">{{item.total_classes}}节 · {{item.validity_days}}天有效</text>
+      </view>
+      <text class="product-desc" wx:if="{{item.description}}">{{item.description}}</text>
+    </view>
+
+    <view wx:if="{{packages.length === 0}}" class="empty">暂无在售课程包</view>
+  </view>
+
+  <!-- 购买表单 -->
+  <view class="card buy-section" wx:if="{{selectedProduct || selectedPkg}}">
+    <view class="buy-row">
+      <text class="label">数量</text>
+      <input class="input-field" type="number" value="{{quantity}}" bindinput="onQuantityInput" style="width:150rpx" />
+    </view>
+
+    <view class="buy-row">
+      <text class="label">金额</text>
+      <text class="total-amount">
+        ¥{{((selectedProduct?.price || selectedPkg?.price || 0) * quantity).toFixed(2)}}
+      </text>
+    </view>
+
+    <view class="buy-actions">
+      <button class="btn-primary" bindtap="onBuy" loading="{{submitting}}" disabled="{{submitting}}">
+        {{submitting ? '处理中...' : '立即购买'}}
+      </button>
+    </view>
+  </view>
+</view>

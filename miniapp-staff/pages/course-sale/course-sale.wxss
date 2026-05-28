@@ -1,0 +1,17 @@
+.pkg-item {
+  padding: 24rpx;
+  border: 2rpx solid var(--border-color);
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.pkg-item.active {
+  border-color: var(--brand-primary);
+  background: #ebf4ff;
+}
+.pkg-name { font-size: 28rpx; font-weight: 500; }
+.pkg-price { font-size: 30rpx; color: var(--danger); font-weight: 600; }
+.pkg-info { width: 100%; font-size: 24rpx; color: var(--text-secondary); margin-top: 6rpx; }
+.amount-text { font-size: 36rpx; color: var(--danger); font-weight: 700; }

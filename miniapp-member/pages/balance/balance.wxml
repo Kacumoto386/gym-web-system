@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="card balance-card">
+    <text class="balance-label">账户余额</text>
+    <text class="balance-value">¥{{balance.toFixed(2)}}</text>
+  </view>
+
+  <view class="card">
+    <text class="section-title">最近充值</text>
+    <view wx:for="{{recharges}}" wx:key="recharge_id" class="recharge-row">
+      <text class="recharge-amount">+¥{{item.amount.toFixed(2)}}</text>
+      <text class="recharge-time">{{item.created_at}}</text>
+    </view>
+    <view wx:if="{{recharges.length === 0}}" class="empty-text">暂无充值记录</view>
+  </view>
+</view>

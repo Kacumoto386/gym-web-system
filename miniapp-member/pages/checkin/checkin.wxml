@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="card" wx:if="{{stats}}">
+    <view class="stats-row">
+      <view class="stat-item"><text class="stat-value">{{stats.monthly_count}}</text><text class="stat-label">本月签到</text></view>
+      <view class="stat-item"><text class="stat-value">{{stats.total_count}}</text><text class="stat-label">累计签到</text></view>
+    </view>
+  </view>
+
+  <view class="card">
+    <text class="section-title">签到历史</text>
+    <view wx:for="{{records}}" wx:key="checkin_id" class="record-line">
+      <text>{{item.checkin_time}}</text>
+      <text class="text-secondary">{{item.consume_note}}</text>
+    </view>
+  </view>
+</view>

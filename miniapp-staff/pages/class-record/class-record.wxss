@@ -1,0 +1,2 @@
+.record-info { display: flex; flex-direction: column; gap: 6rpx; }
+.load-more { text-align: center; padding: 30rpx; color: var(--brand-secondary); font-size: 26rpx; }

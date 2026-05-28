@@ -1,0 +1,24 @@
+<view class="page">
+  <view class="card" wx:if="{{packages.length}}">
+    <text class="section-title">选择课程包</text>
+    <view wx:for="{{packages}}" wx:key="package_id">
+      <view class="pkg-item {{selectedPkg.package_id === item.package_id ? 'active' : ''}}" bindtap="selectPkg" data-index="{{index}}">
+        <text class="pkg-name">{{item.name}}</text>
+        <text class="pkg-price">¥{{item.price}}</text>
+        <text class="pkg-info" wx:if="{{item.total_classes}}">{{item.total_classes}}节 · {{item.validity_days}}天有效</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{selectedPkg}}">
+    <view class="form-group">
+      <text class="label">数量</text>
+      <input class="input-field" type="number" value="{{quantity}}" bindinput="onQuantityInput" />
+    </view>
+    <view class="form-group">
+      <text class="label">金额</text>
+      <text class="amount-text">¥{{(selectedPkg.price * quantity).toFixed(2)}}</text>
+    </view>
+    <button class="btn-primary" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">确认购课</button>
+  </view>
+</view>

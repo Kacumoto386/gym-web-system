@@ -1,0 +1,49 @@
+<view class="page">
+  <!-- 员工信息 -->
+  <view class="card user-card">
+    <text class="greeting">👋 你好，{{staffName}}</text>
+    <text class="today-label">今日核销 {{todayCheckins}} 人次</text>
+  </view>
+
+  <!-- 快速搜索 -->
+  <view class="card search-card">
+    <view class="search-bar">
+      <input class="search-input" placeholder="输入姓名或手机号快速查会员" value="{{quickSearch}}" bindinput="onSearchInput" />
+      <button class="search-btn" bindtap="onQuickSearch">搜索</button>
+    </view>
+  </view>
+
+  <!-- 快捷入口 -->
+  <view class="card">
+    <text class="section-title">快捷操作</text>
+    <view class="grid">
+      <view class="grid-item" bindtap="onScanCheckin">
+        <text class="grid-icon">📷</text>
+        <text class="grid-label">扫码核销</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/member/member">
+        <text class="grid-icon">👤</text>
+        <text class="grid-label">会员管理</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/card-sale/card-sale">
+        <text class="grid-icon">💳</text>
+        <text class="grid-label">售卡</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/course-sale/course-sale">
+        <text class="grid-icon">📚</text>
+        <text class="grid-label">购课</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/booking/booking">
+        <text class="grid-icon">📅</text>
+        <text class="grid-label">预约</text>
+      </view>
+      <view class="grid-item" bindtap="onNavigate" data-page="/pages/class-record/class-record">
+        <text class="grid-icon">📝</text>
+        <text class="grid-label">上课记录</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 版本号 -->
+  <view class="version-bar">员工小程序 v{{version}}</view>
+</view>

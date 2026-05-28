@@ -1,0 +1,6 @@
+.stats-row { display: flex; justify-content: space-around; }
+.stat-item { display: flex; flex-direction: column; align-items: center; }
+.stat-value { font-size: 48rpx; font-weight: 700; color: var(--brand-primary); }
+.stat-label { font-size: 24rpx; color: var(--text-secondary); }
+.record-line { display: flex; justify-content: space-between; padding: 12rpx 0; font-size: 26rpx; border-bottom: 2rpx solid var(--border-color); }
+.text-secondary { color: var(--text-secondary); }

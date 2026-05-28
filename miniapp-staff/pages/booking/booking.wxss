@@ -1,0 +1,8 @@
+.booking-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 2rpx solid var(--border-color);
+}
+.booking-member { font-weight: 500; }
+.booking-time { color: var(--text-secondary); }

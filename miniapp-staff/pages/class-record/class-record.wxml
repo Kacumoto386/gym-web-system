@@ -1,0 +1,12 @@
+<view class="page">
+  <view class="card" wx:for="{{records}}" wx:key="record_id">
+    <view class="record-info">
+      <text>{{item.member_name}}</text>
+      <text>\{{item.course_name}}</text>
+      <text class="text-secondary">{{item.class_date}} · {{item.coach_name}}</text>
+    </view>
+  </view>
+  <view class="load-more">
+    <text bindtap="onLoadMore" wx:if="{{hasMore}}">加载更多</text>
+  </view>
+</view>

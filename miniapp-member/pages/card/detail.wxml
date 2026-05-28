@@ -1,0 +1,18 @@
+<view class="page" wx:if="{{card}}">
+  <view class="card">
+    <text class="section-title">{{card.product_name}}</text>
+    <view class="info-row"><text>卡类型</text><text>{{card.card_type}}</text></view>
+    <view class="info-row"><text>总次数</text><text>{{card.total_classes}} + {{card.bonus_classes}}</text></view>
+    <view class="info-row"><text>剩余次数</text><text class="highlight">{{card.remaining_classes}}</text></view>
+    <view class="info-row"><text>金额</text><text>¥{{card.amount}}</text></view>
+    <view class="info-row"><text>有效期</text><text>{{card.start_date}} ~ {{card.end_date}}</text></view>
+  </view>
+
+  <view class="card" wx:if="{{history.length}}">
+    <text class="section-title">使用记录</text>
+    <view wx:for="{{history}}" wx:key="checkin_id" class="history-line">
+      <text>{{item.checkin_time}}</text>
+      <text>{{item.consume_note}}</text>
+    </view>
+  </view>
+</view>

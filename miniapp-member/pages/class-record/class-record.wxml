@@ -1,0 +1,15 @@
+<view class="page">
+  <view class="card" wx:if="{{stats}}">
+    <view class="stats-row">
+      <view class="stat-item"><text class="stat-value">{{stats.monthly_count}}</text><text class="stat-label">本月</text></view>
+      <view class="stat-item"><text class="stat-value">{{stats.total_count}}</text><text class="stat-label">累计</text></view>
+    </view>
+  </view>
+
+  <view class="card" wx:for="{{records}}" wx:key="record_id">
+    <text class="record-course">{{item.course_name || '课程'}} · {{item.class_date}}</text>
+    <text class="record-coach">教练: {{item.coach_name}}</text>
+  </view>
+
+  <view class="load-more" bindtap="onLoadMore" wx:if="{{hasMore}}">加载更多</view>
+</view>
